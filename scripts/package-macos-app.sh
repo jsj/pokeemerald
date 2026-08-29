@@ -42,6 +42,7 @@ trap 'rm -f "$launcher_source"' EXIT HUP INT TERM
 cat > "$launcher_source" <<'EOF'
 #include <libgen.h>
 #include <limits.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +58,8 @@ int main(int argc, char **argv) {
 	char runtime[PATH_MAX];
 	char rom[PATH_MAX];
 	char saves[PATH_MAX];
-	const char *home = getenv("HOME");
+	struct passwd *account = getpwuid(getuid());
+	const char *home = account ? account->pw_dir : NULL;
 	if (!home) return 1;
 	snprintf(runtime, sizeof(runtime), "%s/EmeraldRuntime", macos);
 	snprintf(rom, sizeof(rom), "%s/../Resources/Pokemon Emerald.gba", macos);
