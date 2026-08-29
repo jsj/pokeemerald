@@ -62,7 +62,8 @@ int main(int argc, char **argv) {
 	snprintf(save_option, sizeof(save_option), "savegamePath=%s", saves);
 	snprintf(state_option, sizeof(state_option), "savestatePath=%s", saves);
 	char *const arguments[] = {
-		runtime, "-C", "fullscreen=0", "-C", save_option, "-C", state_option, rom, NULL
+		runtime, "-C", "fullscreen=0", "-C", "displayDriver=0",
+		"-C", save_option, "-C", state_option, rom, NULL
 	};
 	execv(runtime, arguments);
 	perror("Pokemon Emerald 386");
