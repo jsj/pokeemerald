@@ -13,6 +13,13 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 test -x "$runtime_app/Contents/MacOS/mGBA"
 test -f "$rom_path"
+runtime_version=$($runtime_app/Contents/MacOS/mGBA --version 2>&1 || true)
+case "$runtime_version" in
+	*' 0.10.5 '*) ;;
+	*)
+		printf 'warning: this launcher is verified with stable mGBA 0.10.5; got: %s\n' "$runtime_version" >&2
+		;;
+esac
 case "$output_app" in
 	*.app) ;;
 	*) printf 'output must end in .app: %s\n' "$output_app" >&2; exit 64 ;;
@@ -62,8 +69,7 @@ int main(int argc, char **argv) {
 	snprintf(save_option, sizeof(save_option), "savegamePath=%s", saves);
 	snprintf(state_option, sizeof(state_option), "savestatePath=%s", saves);
 	char *const arguments[] = {
-		runtime, "-C", "fullscreen=0", "-C", "displayDriver=0",
-		"-C", save_option, "-C", state_option, rom, NULL
+		runtime, "-C", save_option, "-C", state_option, rom, NULL
 	};
 	execv(runtime, arguments);
 	perror("Pokemon Emerald 386");
