@@ -9,6 +9,7 @@ fi
 runtime_app=$1
 rom_path=$2
 output_app=$3
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 test -x "$runtime_app/Contents/MacOS/mGBA"
 test -f "$rom_path"
@@ -24,6 +25,10 @@ fi
 ditto "$runtime_app" "$output_app"
 mv "$output_app/Contents/MacOS/mGBA" "$output_app/Contents/MacOS/EmeraldRuntime"
 cp "$rom_path" "$output_app/Contents/Resources/Pokemon Emerald 386.gba"
+if [ -f "$repo_root/AppIcon.icns" ]; then
+	cp "$repo_root/AppIcon.icns" "$output_app/Contents/Resources/PokemonEmerald.icns"
+	/usr/libexec/PlistBuddy -c 'Set :CFBundleIconFile PokemonEmerald.icns' "$output_app/Contents/Info.plist"
+fi
 
 launcher_source=$(mktemp "${TMPDIR:-/tmp}/pokemon-emerald-launcher.XXXXXX.c")
 trap 'rm -f "$launcher_source"' EXIT HUP INT TERM
@@ -57,7 +62,7 @@ int main(int argc, char **argv) {
 	snprintf(save_option, sizeof(save_option), "savegamePath=%s", saves);
 	snprintf(state_option, sizeof(state_option), "savestatePath=%s", saves);
 	char *const arguments[] = {
-		runtime, "-f", "-C", save_option, "-C", state_option, rom, NULL
+		runtime, "-C", "fullscreen=0", "-C", save_option, "-C", state_option, rom, NULL
 	};
 	execv(runtime, arguments);
 	perror("Pokemon Emerald 386");
