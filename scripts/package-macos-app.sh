@@ -15,7 +15,7 @@ test -x "$runtime_app/Contents/MacOS/mGBA"
 test -f "$rom_path"
 runtime_version=$($runtime_app/Contents/MacOS/mGBA --version 2>&1 || true)
 case "$runtime_version" in
-	*' 0.10.5 '*) ;;
+	*' 0.10.5 '*|*' 0.10-stable-m64-'*) ;;
 	*)
 		printf 'warning: this launcher is verified with stable mGBA 0.10.5; got: %s\n' "$runtime_version" >&2
 		;;
@@ -31,7 +31,7 @@ fi
 
 ditto "$runtime_app" "$output_app"
 mv "$output_app/Contents/MacOS/mGBA" "$output_app/Contents/MacOS/EmeraldRuntime"
-cp "$rom_path" "$output_app/Contents/Resources/Pokemon Emerald 386.gba"
+cp "$rom_path" "$output_app/Contents/Resources/Pokemon Emerald.gba"
 if [ -f "$repo_root/AppIcon.icns" ]; then
 	cp "$repo_root/AppIcon.icns" "$output_app/Contents/Resources/PokemonEmerald.icns"
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleIconFile PokemonEmerald.icns' "$output_app/Contents/Info.plist"
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	const char *home = getenv("HOME");
 	if (!home) return 1;
 	snprintf(runtime, sizeof(runtime), "%s/EmeraldRuntime", macos);
-	snprintf(rom, sizeof(rom), "%s/../Resources/Pokemon Emerald 386.gba", macos);
+	snprintf(rom, sizeof(rom), "%s/../Resources/Pokemon Emerald.gba", macos);
 	snprintf(saves, sizeof(saves), "%s/Library/Application Support/Pokemon Emerald 386", home);
 	mkdir(saves, 0755);
 
@@ -72,15 +72,17 @@ int main(int argc, char **argv) {
 		runtime, "-C", save_option, "-C", state_option, rom, NULL
 	};
 	execv(runtime, arguments);
-	perror("Pokemon Emerald 386");
+	perror("Pokémon Emerald");
 	return 1;
 }
 EOF
 
-xcrun clang -Os "$launcher_source" -o "$output_app/Contents/MacOS/Pokemon Emerald 386"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable Pokemon Emerald 386' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokemon Emerald 386' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.zoverflow.pokemon-emerald-386' "$output_app/Contents/Info.plist"
+xcrun clang -Os "$launcher_source" -o "$output_app/Contents/MacOS/PokemonEmeraldLauncher"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable PokemonEmeraldLauncher' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokémon Emerald' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Pokémon Emerald' "$output_app/Contents/Info.plist" 2>/dev/null || \
+	/usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Pokémon Emerald' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.zoverflow.pokemon-emerald' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleDocumentTypes' "$output_app/Contents/Info.plist" 2>/dev/null || true
 
 codesign --force --deep --sign - "$output_app"
