@@ -54,6 +54,16 @@ func (c Catalog) MapEntries(query string) []MapEntry {
 	return entries
 }
 
+func (c Catalog) FindMap(value string) (MapEntry, bool) {
+	wanted := normalize(value)
+	for _, entry := range c.MapEntries("") {
+		if normalize(entry.ID) == wanted || normalize(entry.Name) == wanted || normalize(strings.TrimPrefix(entry.ID, "MAP_")) == wanted {
+			return entry, true
+		}
+	}
+	return MapEntry{}, false
+}
+
 func (c Catalog) SpeciesName(id uint16) string { return name(c.Species, id, "species") }
 func (c Catalog) MoveName(id uint16) string    { return name(c.Moves, id, "move") }
 func (c Catalog) ItemName(id uint16) string    { return name(c.Items, id, "item") }

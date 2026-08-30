@@ -178,21 +178,16 @@ func runMaps(args []string, stdout io.Writer) error {
 	return encoder.Encode(result)
 }
 
-const pokectxCheatCRC32 = "db376d2f"
+const pokectxCheatCRC32 = "8e82fa39"
 
 func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|level POKEMON LEVEL|give-item ITEM QUANTITY|give SPECIES LEVEL|learn POKEMON MOVE|forget POKEMON MOVE> [--confirm]")
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|level POKEMON LEVEL|give-item ITEM QUANTITY|give SPECIES LEVEL [--shiny]|learn POKEMON MOVE|forget POKEMON MOVE|heal|teleport MAP X Y> [--confirm]")
 		return nil
 	}
-	confirmed := false
-	values := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--confirm" {
-			confirmed = true
-		} else {
-			values = append(values, arg)
-		}
+	values, confirmed, shiny, err := parseCheatOptions(args)
+	if err != nil {
+		return err
 	}
 	address := os.Getenv("POKECTX_ADDRESS")
 	if address == "" {
@@ -214,6 +209,15 @@ func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if shiny {
+		if len(values) == 0 || values[0] != "give" {
+			return errors.New("the --shiny option requires the give command")
+		}
+		request.Arg1 |= 1 << 31
+		if pokemon, ok := after.(map[string]any); ok {
+			pokemon["shiny"] = true
+		}
+	}
 	result := map[string]any{
 		"schema_version": model.SchemaVersion,
 		"command":        strings.Join(values, " "),
@@ -231,11 +235,31 @@ func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 		}
 		result["applied"] = true
 	} else {
-		result["confirmation"] = "preview only; repeat with --confirm to apply"
+		result["confirmation"] = "preview only. Repeat the command with --confirm to apply"
 	}
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
+}
+
+func parseCheatOptions(args []string) ([]string, bool, bool, error) {
+	confirmed := false
+	shiny := false
+	values := make([]string, 0, len(args))
+	for _, arg := range args {
+		switch arg {
+		case "--confirm":
+			confirmed = true
+		case "--shiny":
+			shiny = true
+		default:
+			if strings.HasPrefix(arg, "--") {
+				return nil, false, false, fmt.Errorf("unknown option %q", arg)
+			}
+			values = append(values, arg)
+		}
+	}
+	return values, confirmed, shiny, nil
 }
 
 func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest, any, any, error) {
@@ -300,6 +324,50 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 		pokemon := map[string]any{"species": catalog.Default.SpeciesName(speciesID), "level": level}
 		request.Command, request.Arg1, request.Arg2 = 4, uint32(speciesID), uint16(level)
 		return request, nil, pokemon, nil
+	case "heal":
+		if len(args) != 1 {
+			return request, nil, nil, errors.New("usage: pokectx cheats heal [--confirm]")
+		}
+		afterTeam := make([]map[string]any, 0, len(snapshot.Team))
+		for _, pokemon := range snapshot.Team {
+			afterTeam = append(afterTeam, map[string]any{
+				"pokemon": pokemon.Nickname,
+				"hp":      pokemon.MaxHP,
+				"status":  "healthy",
+				"pp":      "full",
+			})
+		}
+		request.Command = 7
+		return request, snapshot.Team, afterTeam, nil
+	case "teleport":
+		if len(args) != 4 {
+			return request, nil, nil, errors.New("usage: pokectx cheats teleport MAP X Y [--confirm]")
+		}
+		mapEntry, ok := catalog.Default.FindMap(args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("unknown map %q. Use pokectx maps find QUERY", args[1])
+		}
+		x, err := parseUint(args[2], 127)
+		if err != nil {
+			return request, nil, nil, fmt.Errorf("x coordinate: %w", err)
+		}
+		y, err := parseUint(args[3], 127)
+		if err != nil {
+			return request, nil, nil, fmt.Errorf("y coordinate: %w", err)
+		}
+		request.Command = 8
+		request.Arg1 = uint32(mapEntry.MapGroup<<8 | mapEntry.MapNum)
+		request.Arg2 = uint16(x | y<<8)
+		after := map[string]any{
+			"map_id":    mapEntry.ID,
+			"name":      mapEntry.Name,
+			"map_group": mapEntry.MapGroup,
+			"map_num":   mapEntry.MapNum,
+			"x":         x,
+			"y":         y,
+			"warning":   "Entering some maps can start story scripts out of order.",
+		}
+		return request, snapshot.Location, after, nil
 	case "learn", "forget":
 		if len(args) != 3 {
 			return request, nil, nil, fmt.Errorf("usage: pokectx cheats %s POKEMON MOVE [--confirm]", args[0])

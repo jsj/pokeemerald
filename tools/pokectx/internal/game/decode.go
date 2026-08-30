@@ -19,7 +19,8 @@ const (
 	supportedCRC32          = "1f1c08fb"
 	legacyPokectxCRC32      = "8fc08ba1"
 	legacyPokectxCheatCRC32 = "7525584e"
-	pokectxCRC32            = "db376d2f"
+	legacyPokectxMovesCRC32 = "db376d2f"
+	pokectxCRC32            = "8e82fa39"
 	statusSleep             = 0x7
 	statusPoison            = 0x8
 	statusBurn              = 0x10
@@ -47,7 +48,7 @@ func (d Decoder) Decode(observation adapter.Observation) (model.Snapshot, error)
 		return model.Snapshot{}, fmt.Errorf("unsupported game code %q", observation.GameCode)
 	}
 	crc := strings.ToLower(observation.ROMCRC32)
-	if crc != "" && crc != supportedCRC32 && crc != legacyPokectxCRC32 && crc != legacyPokectxCheatCRC32 && crc != pokectxCRC32 {
+	if crc != "" && crc != supportedCRC32 && crc != legacyPokectxCRC32 && crc != legacyPokectxCheatCRC32 && crc != legacyPokectxMovesCRC32 && crc != pokectxCRC32 {
 		return model.Snapshot{}, fmt.Errorf("unsupported Pokémon Emerald ROM CRC32 %q", observation.ROMCRC32)
 	}
 
@@ -127,7 +128,8 @@ func (d Decoder) decodeTeam(data []byte, count int) []model.Pokemon {
 	for i := 0; i < count; i++ {
 		mon := data[i*teamPokemonSize : (i+1)*teamPokemonSize]
 		personality := binary.LittleEndian.Uint32(mon[0:4])
-		key := personality ^ binary.LittleEndian.Uint32(mon[4:8])
+		otID := binary.LittleEndian.Uint32(mon[4:8])
+		key := personality ^ otID
 		plain := make([]byte, 48)
 		for offset := 0; offset < 48; offset += 4 {
 			binary.LittleEndian.PutUint32(plain[offset:offset+4], binary.LittleEndian.Uint32(mon[32+offset:36+offset])^key)
@@ -167,11 +169,17 @@ func (d Decoder) decodeTeam(data []byte, count int) []model.Pokemon {
 			MoveIDs:    moveIDs,
 			Moves:      moveNames,
 			MovePP:     movePP,
+			Shiny:      isShiny(otID, personality),
 			IsEgg:      mon[19]&(1<<2) != 0,
 			Status:     decodeStatus(binary.LittleEndian.Uint32(mon[80:84])),
 		})
 	}
 	return team
+}
+
+func isShiny(otID, personality uint32) bool {
+	value := uint16(otID>>16) ^ uint16(otID) ^ uint16(personality>>16) ^ uint16(personality)
+	return value < 8
 }
 
 func variable(saveBlock []byte, id uint16) uint16 {

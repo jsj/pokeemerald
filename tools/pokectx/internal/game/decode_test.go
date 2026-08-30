@@ -122,6 +122,15 @@ func TestDecodeStatus(t *testing.T) {
 	}
 }
 
+func TestIsShinyUsesTrainerAndPersonalityValues(t *testing.T) {
+	if !isShiny(0x12345678, 0x444c0000) {
+		t.Fatal("expected shiny personality")
+	}
+	if isShiny(0x12345678, 0x12346678) {
+		t.Fatal("expected normal personality")
+	}
+}
+
 func TestDecodeTrainerBattle(t *testing.T) {
 	const battlePokemonSize = 0x58
 	battleData := make([]byte, battlePokemonSize*2)

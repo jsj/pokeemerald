@@ -47,8 +47,11 @@ pokectx cheats set-money 5000
 pokectx cheats level MARSHTOMP 25
 pokectx cheats give-item REPEL 10
 pokectx cheats give RAYQUAZA 70
+pokectx cheats give RAYQUAZA 70 --shiny
 pokectx cheats forget MARSHTOMP TACKLE
 pokectx cheats learn MARSHTOMP ICE_BEAM
+pokectx cheats heal
+pokectx cheats teleport SLATEPORT_CITY 19 20
 ```
 
 Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
@@ -60,6 +63,8 @@ pokectx cheats give-item REPEL 10 --confirm
 The game applies changes through its own money, bag, Pokémon, move, experience, and stat functions. The `level` command does not teach skipped moves or start an evolution.
 The `learn` command requires an empty move slot. If the Pokémon knows four moves, use `forget` first. A Pokémon cannot forget its last move.
 Granted Pokémon use the game's normal gift flow: they join the party when there is room, otherwise they go to Pokémon Storage. The command fails without changing the save if both are full.
+The `--shiny` option guarantees that a Pokémon from `give` is shiny. Team and snapshot output identify shiny Pokémon.
+The `heal` command restores party HP, PP, and status. The `teleport` command rejects unknown maps, invalid coordinates, blocked tiles, and occupied tiles.
 
 ### Automatic connection on the Mac mini
 

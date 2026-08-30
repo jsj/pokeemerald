@@ -41,6 +41,7 @@ type Pokemon struct {
 	MoveIDs    []uint16 `json:"move_ids"`
 	Moves      []string `json:"moves"`
 	MovePP     []int    `json:"move_pp"`
+	Shiny      bool     `json:"shiny"`
 	IsEgg      bool     `json:"is_egg"`
 	Status     string   `json:"status"`
 }

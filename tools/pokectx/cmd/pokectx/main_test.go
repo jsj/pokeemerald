@@ -126,6 +126,40 @@ func TestPrepareGivePokemonCheatAcceptsSpeciesName(t *testing.T) {
 	}
 }
 
+func TestParseCheatOptionsFindsShinyAndConfirmation(t *testing.T) {
+	values, confirmed, shiny, err := parseCheatOptions([]string{"give", "RAYQUAZA", "70", "--shiny", "--confirm"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !confirmed || !shiny || strings.Join(values, " ") != "give RAYQUAZA 70" {
+		t.Fatalf("values = %v, confirmed = %v, shiny = %v", values, confirmed, shiny)
+	}
+}
+
+func TestPrepareHealCheat(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", HP: 10, MaxHP: 71, Status: "poison"}}}
+	request, before, after, err := prepareCheat([]string{"heal"}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 7 || before == nil || after == nil {
+		t.Fatalf("request = %#v, before = %#v, after = %#v", request, before, after)
+	}
+}
+
+func TestPrepareTeleportCheatPacksMapAndCoordinates(t *testing.T) {
+	request, before, after, err := prepareCheat([]string{"teleport", "SLATEPORT_CITY", "19", "20"}, model.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 8 || request.Arg1 != 1 || request.Arg2 != 0x1413 {
+		t.Fatalf("request = %#v", request)
+	}
+	if before == nil || after == nil {
+		t.Fatal("preview values are missing")
+	}
+}
+
 func TestPrepareCheatRejectsInvalidValues(t *testing.T) {
 	for _, args := range [][]string{{"set-money", "1000000"}, {"level", "MARSHTOMP", "0"}, {"set-level", "MARSHTOMP", "25"}, {"give-item", "REPEL", "0"}, {"give", "RAYQUAZA", "101"}, {"give", "MISSINGNO", "70"}, {"give", "EGG", "5"}, {"give-pokemon", "RAYQUAZA", "70"}, {"grant-pokemon", "RAYQUAZA", "70"}} {
 		if _, _, _, err := prepareCheat(args, model.Snapshot{}); err == nil {
