@@ -30,6 +30,7 @@ Cheat commands preview their change by default:
 pokectx cheats set-money 5000
 pokectx cheats set-level MARSHTOMP 25
 pokectx cheats give-item REPEL 10
+pokectx cheats give-pokemon RAYQUAZA 70
 ```
 
 Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
@@ -39,6 +40,7 @@ pokectx cheats give-item REPEL 10 --confirm
 ```
 
 The game applies changes through its own `SetMoney`, `AddBagItem`, experience-table, and stat-calculation functions. Setting a level does not automatically teach skipped moves or trigger an evolution.
+Granted Pokémon use the game's normal gift flow: they join the party when there is room, otherwise they go to Pokémon Storage. The command fails without changing the save if both are full.
 
 ### Automatic connection on the Mac mini
 

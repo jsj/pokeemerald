@@ -28,9 +28,17 @@ func (c Catalog) ItemName(id uint16) string    { return name(c.Items, id, "item"
 func (c Catalog) AbilityName(id uint16) string { return name(c.Abilities, id, "ability") }
 
 func (c Catalog) FindItem(value string) (uint16, bool) {
+	return find(c.Items, value)
+}
+
+func (c Catalog) FindSpecies(value string) (uint16, bool) {
+	return find(c.Species, value)
+}
+
+func find(values map[uint16]string, value string) (uint16, bool) {
 	wanted := normalize(value)
-	for id, item := range c.Items {
-		if normalize(item) == wanted || normalize(humanize(item)) == wanted {
+	for id, candidate := range values {
+		if normalize(candidate) == wanted || normalize(humanize(candidate)) == wanted {
 			return id, true
 		}
 	}

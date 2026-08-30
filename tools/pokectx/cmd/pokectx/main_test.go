@@ -49,8 +49,21 @@ func TestPrepareGiveItemCheatAcceptsHumanName(t *testing.T) {
 	}
 }
 
+func TestPrepareGivePokemonCheatAcceptsSpeciesName(t *testing.T) {
+	request, before, after, err := prepareCheat([]string{"give-pokemon", "Rayquaza", "70"}, model.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 4 || request.Arg1 != 406 || request.Arg2 != 70 {
+		t.Fatalf("request = %#v", request)
+	}
+	if before != nil || after == nil {
+		t.Fatalf("before = %#v, after = %#v", before, after)
+	}
+}
+
 func TestPrepareCheatRejectsInvalidValues(t *testing.T) {
-	for _, args := range [][]string{{"set-money", "1000000"}, {"set-level", "MARSHTOMP", "0"}, {"give-item", "REPEL", "0"}} {
+	for _, args := range [][]string{{"set-money", "1000000"}, {"set-level", "MARSHTOMP", "0"}, {"give-item", "REPEL", "0"}, {"give-pokemon", "RAYQUAZA", "101"}, {"give-pokemon", "MISSINGNO", "70"}, {"give-pokemon", "EGG", "5"}} {
 		if _, _, _, err := prepareCheat(args, model.Snapshot{}); err == nil {
 			t.Fatalf("prepareCheat(%v) succeeded", args)
 		}

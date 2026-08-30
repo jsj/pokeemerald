@@ -9,6 +9,7 @@ enum PokectxCheatCommand
     POKECTX_CHEAT_SET_MONEY,
     POKECTX_CHEAT_SET_LEVEL,
     POKECTX_CHEAT_GIVE_ITEM,
+    POKECTX_CHEAT_GIVE_POKEMON,
 };
 
 enum PokectxCheatStatus
@@ -18,6 +19,7 @@ enum PokectxCheatStatus
     POKECTX_CHEAT_INVALID_COMMAND,
     POKECTX_CHEAT_INVALID_ARGUMENT,
     POKECTX_CHEAT_BAG_FULL,
+    POKECTX_CHEAT_STORAGE_FULL,
 };
 
 struct PokectxCheatMailbox

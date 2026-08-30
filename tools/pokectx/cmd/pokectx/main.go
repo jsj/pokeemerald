@@ -143,11 +143,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	return encoder.Encode(result)
 }
 
-const pokectxCheatCRC32 = "8fc08ba1"
+const pokectxCheatCRC32 = "7525584e"
 
 func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|set-level POKEMON LEVEL|give-item ITEM QUANTITY> [--confirm]")
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|set-level POKEMON LEVEL|give-item ITEM QUANTITY|give-pokemon SPECIES LEVEL> [--confirm]")
 		return nil
 	}
 	confirmed := false
@@ -250,6 +250,21 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 		current := itemQuantity(snapshot, itemID)
 		request.Command, request.Arg1, request.Arg2 = 3, uint32(itemID), uint16(quantity)
 		return request, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current}, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current + int(quantity)}, nil
+	case "give-pokemon", "grant-pokemon":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats give-pokemon SPECIES LEVEL [--confirm]")
+		}
+		speciesID, ok := catalog.Default.FindSpecies(args[1])
+		if !ok || speciesID == 0 || speciesID >= 412 {
+			return request, nil, nil, fmt.Errorf("unknown Pokémon species %q", args[1])
+		}
+		level, err := parseUint(args[2], 100)
+		if err != nil || level == 0 {
+			return request, nil, nil, errors.New("level must be between 1 and 100")
+		}
+		pokemon := map[string]any{"species": catalog.Default.SpeciesName(speciesID), "level": level}
+		request.Command, request.Arg1, request.Arg2 = 4, uint32(speciesID), uint16(level)
+		return request, nil, pokemon, nil
 	default:
 		return request, nil, nil, fmt.Errorf("unknown cheat command %q", args[0])
 	}

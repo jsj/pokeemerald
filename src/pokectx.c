@@ -3,6 +3,9 @@
 #include "money.h"
 #include "pokemon.h"
 #include "pokectx.h"
+#include "script_pokemon_util.h"
+#include "constants/pokemon.h"
+#include "constants/species.h"
 
 #define POKECTX_MAX_MONEY 999999
 
@@ -61,6 +64,28 @@ void Pokectx_ProcessCheatMailbox(void)
             return;
         }
         gPokectxCheatMailbox.result = gPokectxCheatMailbox.arg2;
+        break;
+    case POKECTX_CHEAT_GIVE_POKEMON:
+        if (gPokectxCheatMailbox.arg1 == SPECIES_NONE
+         || gPokectxCheatMailbox.arg1 >= NUM_SPECIES
+         || gPokectxCheatMailbox.arg2 == 0
+         || gPokectxCheatMailbox.arg2 > MAX_LEVEL)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        gPokectxCheatMailbox.result = ScriptGiveMon(
+            gPokectxCheatMailbox.arg1,
+            gPokectxCheatMailbox.arg2,
+            ITEM_NONE,
+            0,
+            0,
+            0);
+        if (gPokectxCheatMailbox.result == MON_CANT_GIVE)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_STORAGE_FULL;
+            return;
+        }
         break;
     default:
         gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_COMMAND;
