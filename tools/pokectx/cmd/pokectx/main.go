@@ -250,7 +250,7 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 		current := itemQuantity(snapshot, itemID)
 		request.Command, request.Arg1, request.Arg2 = 3, uint32(itemID), uint16(quantity)
 		return request, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current}, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current + int(quantity)}, nil
-	case "give", "give-pokemon", "grant-pokemon":
+	case "give":
 		if len(args) != 3 {
 			return request, nil, nil, errors.New("usage: pokectx cheats give SPECIES LEVEL [--confirm]")
 		}
