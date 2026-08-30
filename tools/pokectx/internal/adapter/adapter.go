@@ -38,6 +38,7 @@ type CheatRequest struct {
 	Arg1    uint32
 	Arg2    uint16
 	Nonce   uint32
+	Data    []byte
 }
 
 type CheatResponse struct {
@@ -60,7 +61,11 @@ func (r SocketReader) ExecuteCheat(ctx context.Context, request CheatRequest) (C
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(timeout))
-	if _, err := fmt.Fprintf(conn, "cheat %d %d %d %d\n", request.Command, request.Arg1, request.Arg2, request.Nonce); err != nil {
+	payload := "-"
+	if len(request.Data) != 0 {
+		payload = hex.EncodeToString(request.Data)
+	}
+	if _, err := fmt.Fprintf(conn, "cheat %d %d %d %d %s\n", request.Command, request.Arg1, request.Arg2, request.Nonce, payload); err != nil {
 		return response, fmt.Errorf("send cheat request: %w", err)
 	}
 	if err := json.NewDecoder(conn).Decode(&response); err != nil {

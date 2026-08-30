@@ -178,11 +178,11 @@ func runMaps(args []string, stdout io.Writer) error {
 	return encoder.Encode(result)
 }
 
-const pokectxCheatCRC32 = "8e82fa39"
+const pokectxCheatCRC32 = "6bed4642"
 
 func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|level POKEMON LEVEL|give-item ITEM QUANTITY|give SPECIES LEVEL [--shiny]|learn POKEMON MOVE|forget POKEMON MOVE|heal|teleport MAP X Y> [--confirm]")
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money|level|give-item|give|learn|forget|heal|teleport|hold|friendship|clone|evolve|rename|badge> [arguments] [--confirm]")
 		return nil
 	}
 	values, confirmed, shiny, err := parseCheatOptions(args)
@@ -368,6 +368,97 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 			"warning":   "Entering some maps can start story scripts out of order.",
 		}
 		return request, snapshot.Location, after, nil
+	case "hold":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats hold POKEMON ITEM [--confirm]")
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		itemID, ok := catalog.Default.FindItem(args[2])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("unknown item %q", args[2])
+		}
+		itemName := "None"
+		if itemID != 0 {
+			itemName = catalog.Default.ItemName(itemID)
+		}
+		request.Command, request.Arg1, request.Arg2 = 9, uint32(teamIndex), itemID
+		return request, map[string]any{"pokemon": pokemon.Nickname, "held_item": pokemon.HeldItem}, map[string]any{"pokemon": pokemon.Nickname, "held_item": itemName}, nil
+	case "friendship":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats friendship POKEMON VALUE [--confirm]")
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		value, err := parseUint(args[2], 255)
+		if err != nil {
+			return request, nil, nil, fmt.Errorf("friendship: %w", err)
+		}
+		request.Command, request.Arg1, request.Arg2 = 10, uint32(teamIndex), uint16(value)
+		return request, map[string]any{"pokemon": pokemon.Nickname, "friendship": pokemon.Friendship}, map[string]any{"pokemon": pokemon.Nickname, "friendship": value}, nil
+	case "clone":
+		if len(args) != 2 {
+			return request, nil, nil, errors.New("usage: pokectx cheats clone POKEMON [--confirm]")
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		request.Command, request.Arg1 = 11, uint32(teamIndex)
+		return request, nil, map[string]any{"clone": pokemon, "destination": "party or Pokémon Storage"}, nil
+	case "evolve":
+		if len(args) < 2 || len(args) > 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats evolve POKEMON [TARGET_SPECIES] [--confirm]")
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		targetID := uint16(0)
+		targetName := "next unambiguous evolution"
+		if len(args) == 3 {
+			var found bool
+			targetID, found = catalog.Default.FindSpecies(args[2])
+			if !found || targetID == 0 || targetID >= 412 {
+				return request, nil, nil, fmt.Errorf("unknown Pokémon species %q", args[2])
+			}
+			targetName = catalog.Default.SpeciesName(targetID)
+		}
+		request.Command, request.Arg1, request.Arg2 = 12, uint32(teamIndex), targetID
+		return request, map[string]any{"pokemon": pokemon.Nickname, "species": pokemon.Species}, map[string]any{"pokemon": pokemon.Nickname, "species": targetName}, nil
+	case "rename":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats rename POKEMON NICKNAME [--confirm]")
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		encoded, err := encodePokemonText(args[2])
+		if err != nil {
+			return request, nil, nil, err
+		}
+		request.Command, request.Arg1, request.Data = 13, uint32(teamIndex), encoded
+		return request, pokemon.Nickname, args[2], nil
+	case "badge":
+		if len(args) != 2 {
+			return request, nil, nil, errors.New("usage: pokectx cheats badge NAME [--confirm]")
+		}
+		if strings.EqualFold(args[1], "all") {
+			request.Command, request.Arg1 = 14, 0xFF
+			return request, snapshot.Badges, badgeNames, nil
+		}
+		badgeIndex, badgeName, ok := findBadge(args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("unknown badge %q", args[1])
+		}
+		hasBadge := containsString(snapshot.Badges, badgeName)
+		request.Command, request.Arg1 = 14, uint32(badgeIndex)
+		return request, map[string]any{"badge": badgeName, "owned": hasBadge}, map[string]any{"badge": badgeName, "owned": true}, nil
 	case "learn", "forget":
 		if len(args) != 3 {
 			return request, nil, nil, fmt.Errorf("usage: pokectx cheats %s POKEMON MOVE [--confirm]", args[0])
@@ -420,6 +511,62 @@ func parseUint(value string, maximum uint64) (uint64, error) {
 
 func normalizedName(value string) string {
 	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToUpper(value))
+}
+
+func encodePokemonText(value string) ([]byte, error) {
+	runes := []rune(value)
+	if len(runes) == 0 || len(runes) > 10 {
+		return nil, errors.New("a nickname must contain 1 to 10 characters")
+	}
+	encoded := make([]byte, 0, len(runes)+1)
+	for _, char := range runes {
+		var value byte
+		switch {
+		case char == ' ':
+			value = 0x00
+		case char >= '0' && char <= '9':
+			value = byte(0xA1 + char - '0')
+		case char >= 'A' && char <= 'Z':
+			value = byte(0xBB + char - 'A')
+		case char >= 'a' && char <= 'z':
+			value = byte(0xD5 + char - 'a')
+		case char == '!':
+			value = 0xAB
+		case char == '?':
+			value = 0xAC
+		case char == '.':
+			value = 0xAD
+		case char == '-':
+			value = 0xAE
+		case char == ',':
+			value = 0xB8
+		default:
+			return nil, fmt.Errorf("a nickname cannot contain %q", char)
+		}
+		encoded = append(encoded, value)
+	}
+	return append(encoded, 0xFF), nil
+}
+
+var badgeNames = []string{"Stone Badge", "Knuckle Badge", "Dynamo Badge", "Heat Badge", "Balance Badge", "Feather Badge", "Mind Badge", "Rain Badge"}
+
+func findBadge(value string) (int, string, bool) {
+	wanted := normalizedName(value)
+	for index, badge := range badgeNames {
+		if normalizedName(badge) == wanted || normalizedName(strings.TrimSuffix(badge, " Badge")) == wanted {
+			return index, badge, true
+		}
+	}
+	return 0, "", false
+}
+
+func containsString(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func findTeamPokemon(snapshot model.Snapshot, value string) (int, model.Pokemon, bool) {

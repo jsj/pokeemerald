@@ -160,6 +160,55 @@ func TestPrepareTeleportCheatPacksMapAndCoordinates(t *testing.T) {
 	}
 }
 
+func TestPreparePokemonAttributeCheats(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", Species: "Marshtomp", Friendship: 70}}}
+	tests := []struct {
+		args    []string
+		command uint8
+		arg2    uint16
+	}{
+		{[]string{"hold", "MARSHTOMP", "LEFTOVERS"}, 9, 200},
+		{[]string{"friendship", "MARSHTOMP", "255"}, 10, 255},
+		{[]string{"clone", "MARSHTOMP"}, 11, 0},
+		{[]string{"evolve", "MARSHTOMP", "SWAMPERT"}, 12, 285},
+		{[]string{"badge", "STONE"}, 14, 0},
+	}
+	for _, test := range tests {
+		request, _, _, err := prepareCheat(test.args, snapshot)
+		if err != nil {
+			t.Fatalf("prepareCheat(%v): %v", test.args, err)
+		}
+		if request.Command != test.command || request.Arg1 != 0 || request.Arg2 != test.arg2 {
+			t.Fatalf("prepareCheat(%v) = %#v", test.args, request)
+		}
+	}
+}
+
+func TestPrepareRenameCheatEncodesGameText(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP"}}}
+	request, before, after, err := prepareCheat([]string{"rename", "MARSHTOMP", "Mud-2"}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{0xC7, 0xE9, 0xD8, 0xAE, 0xA3, 0xFF}
+	if request.Command != 13 || !bytes.Equal(request.Data, want) {
+		t.Fatalf("request = %#v", request)
+	}
+	if before != "MARSHTOMP" || after != "Mud-2" {
+		t.Fatalf("before = %#v, after = %#v", before, after)
+	}
+}
+
+func TestPrepareAllBadgesCheat(t *testing.T) {
+	request, before, after, err := prepareCheat([]string{"badge", "ALL"}, model.Snapshot{Badges: []string{"Stone Badge"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 14 || request.Arg1 != 0xFF || before == nil || after == nil {
+		t.Fatalf("request = %#v, before = %#v, after = %#v", request, before, after)
+	}
+}
+
 func TestPrepareCheatRejectsInvalidValues(t *testing.T) {
 	for _, args := range [][]string{{"set-money", "1000000"}, {"level", "MARSHTOMP", "0"}, {"set-level", "MARSHTOMP", "25"}, {"give-item", "REPEL", "0"}, {"give", "RAYQUAZA", "101"}, {"give", "MISSINGNO", "70"}, {"give", "EGG", "5"}, {"give-pokemon", "RAYQUAZA", "70"}, {"grant-pokemon", "RAYQUAZA", "70"}} {
 		if _, _, _, err := prepareCheat(args, model.Snapshot{}); err == nil {

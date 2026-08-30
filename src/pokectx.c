@@ -1,15 +1,20 @@
 #include "global.h"
 #include "field_screen_effect.h"
+#include "event_data.h"
+#include "evolution_scene.h"
 #include "item.h"
 #include "money.h"
 #include "overworld.h"
 #include "pokedex.h"
 #include "pokemon.h"
+#include "pokemon_storage_system.h"
 #include "pokectx.h"
 #include "random.h"
 #include "script_pokemon_util.h"
+#include "constants/characters.h"
 #include "constants/map_groups.h"
 #include "constants/maps.h"
+#include "constants/flags.h"
 #include "constants/pokemon.h"
 #include "constants/moves.h"
 #include "constants/species.h"
@@ -22,6 +27,8 @@ static const u8 sMapGroupCounts[MAP_GROUPS_COUNT] =
     57, 5, 5, 6, 7, 8, 9, 7, 7, 14, 8, 17, 10, 23, 13, 15, 15,
     2, 2, 2, 3, 1, 1, 1, 108, 61, 89, 2, 1, 13, 1, 1, 3, 1,
 };
+
+extern const struct Evolution gEvolutionTable[NUM_SPECIES][EVOS_PER_MON];
 
 EWRAM_DATA volatile struct PokectxCheatMailbox gPokectxCheatMailbox = {0};
 
@@ -118,6 +125,30 @@ static bool8 IsValidTeleportDestination(u8 mapGroup, u8 mapNum, u8 x, u8 y)
             return FALSE;
     }
     return TRUE;
+}
+
+static u16 GetForcedEvolutionTarget(struct Pokemon *mon, u16 requestedSpecies)
+{
+    u16 species = GetMonData(mon, MON_DATA_SPECIES, NULL);
+    u16 target = SPECIES_NONE;
+    u8 i;
+
+    for (i = 0; i < EVOS_PER_MON; i++)
+    {
+        u16 candidate = gEvolutionTable[species][i].targetSpecies;
+        if (candidate == SPECIES_NONE)
+            continue;
+        if (requestedSpecies != SPECIES_NONE)
+        {
+            if (candidate == requestedSpecies)
+                return candidate;
+            continue;
+        }
+        if (target != SPECIES_NONE && target != candidate)
+            return SPECIES_NONE;
+        target = candidate;
+    }
+    return target;
 }
 
 void Pokectx_ProcessCheatMailbox(void)
@@ -242,6 +273,109 @@ void Pokectx_ProcessCheatMailbox(void)
         gPokectxCheatMailbox.result = gPokectxCheatMailbox.arg1;
         break;
     }
+    case POKECTX_CHEAT_HOLD:
+    {
+        u16 item = gPokectxCheatMailbox.arg2;
+        if (gPokectxCheatMailbox.arg1 >= gPlayerPartyCount
+         || item >= ITEMS_COUNT)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        SetMonData(&gPlayerParty[gPokectxCheatMailbox.arg1], MON_DATA_HELD_ITEM, &item);
+        gPokectxCheatMailbox.result = item;
+        break;
+    }
+    case POKECTX_CHEAT_FRIENDSHIP:
+    {
+        u8 friendship = gPokectxCheatMailbox.arg2;
+        if (gPokectxCheatMailbox.arg1 >= gPlayerPartyCount
+         || gPokectxCheatMailbox.arg2 > 255)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        SetMonData(&gPlayerParty[gPokectxCheatMailbox.arg1], MON_DATA_FRIENDSHIP, &friendship);
+        gPokectxCheatMailbox.result = friendship;
+        break;
+    }
+    case POKECTX_CHEAT_CLONE:
+    {
+        struct Pokemon clone;
+        struct Pokemon original;
+        if (gPokectxCheatMailbox.arg1 >= gPlayerPartyCount)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        CopyMon(&original, &gPlayerParty[gPokectxCheatMailbox.arg1], sizeof(original));
+        CopyMon(&clone, &original, sizeof(clone));
+        gPokectxCheatMailbox.result = GiveMonToPlayer(&clone);
+        if (gPokectxCheatMailbox.result == MON_CANT_GIVE)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_STORAGE_FULL;
+            return;
+        }
+        if (gPokectxCheatMailbox.result == MON_GIVEN_TO_PARTY)
+            CopyMon(&gPlayerParty[gPlayerPartyCount - 1], &original, sizeof(original));
+        else
+            CopyMon(GetBoxedMonPtr(gSpecialVar_MonBoxId, gSpecialVar_MonBoxPos), &original.box, sizeof(original.box));
+        break;
+    }
+    case POKECTX_CHEAT_EVOLVE:
+    {
+        u16 target;
+        if (gPokectxCheatMailbox.arg1 >= gPlayerPartyCount
+         || gPokectxCheatMailbox.arg2 >= NUM_SPECIES)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        target = GetForcedEvolutionTarget(
+            &gPlayerParty[gPokectxCheatMailbox.arg1],
+            gPokectxCheatMailbox.arg2);
+        if (target == SPECIES_NONE)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_NO_EVOLUTION;
+            return;
+        }
+        BeginEvolutionScene(&gPlayerParty[gPokectxCheatMailbox.arg1], target, FALSE, gPokectxCheatMailbox.arg1);
+        gPokectxCheatMailbox.result = target;
+        break;
+    }
+    case POKECTX_CHEAT_RENAME:
+    {
+        u8 nickname[POKEMON_NAME_LENGTH + 1];
+        u8 i;
+        if (gPokectxCheatMailbox.arg1 >= gPlayerPartyCount)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        for (i = 0; i <= POKEMON_NAME_LENGTH; i++)
+            nickname[i] = gPokectxCheatMailbox.data[i];
+        nickname[POKEMON_NAME_LENGTH] = EOS;
+        SetMonData(&gPlayerParty[gPokectxCheatMailbox.arg1], MON_DATA_NICKNAME, nickname);
+        gPokectxCheatMailbox.result = gPokectxCheatMailbox.arg1;
+        break;
+    }
+    case POKECTX_CHEAT_BADGE:
+        if (gPokectxCheatMailbox.arg1 == 0xFF)
+        {
+            u8 i;
+            for (i = 0; i < NUM_BADGES; i++)
+                FlagSet(FLAG_BADGE01_GET + i);
+            gPokectxCheatMailbox.result = NUM_BADGES;
+            break;
+        }
+        if (gPokectxCheatMailbox.arg1 >= NUM_BADGES)
+        {
+            gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_ARGUMENT;
+            return;
+        }
+        FlagSet(FLAG_BADGE01_GET + gPokectxCheatMailbox.arg1);
+        gPokectxCheatMailbox.result = gPokectxCheatMailbox.arg1;
+        break;
     default:
         gPokectxCheatMailbox.status = POKECTX_CHEAT_INVALID_COMMAND;
         return;

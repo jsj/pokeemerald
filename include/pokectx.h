@@ -14,6 +14,12 @@ enum PokectxCheatCommand
     POKECTX_CHEAT_FORGET_MOVE,
     POKECTX_CHEAT_HEAL,
     POKECTX_CHEAT_TELEPORT,
+    POKECTX_CHEAT_HOLD,
+    POKECTX_CHEAT_FRIENDSHIP,
+    POKECTX_CHEAT_CLONE,
+    POKECTX_CHEAT_EVOLVE,
+    POKECTX_CHEAT_RENAME,
+    POKECTX_CHEAT_BADGE,
 };
 
 enum PokectxCheatStatus
@@ -28,6 +34,7 @@ enum PokectxCheatStatus
     POKECTX_CHEAT_MOVESET_FULL,
     POKECTX_CHEAT_LAST_MOVE,
     POKECTX_CHEAT_INVALID_DESTINATION,
+    POKECTX_CHEAT_NO_EVOLUTION,
 };
 
 struct PokectxCheatMailbox
@@ -39,6 +46,7 @@ struct PokectxCheatMailbox
     u8 command;
     u8 status;
     u32 result;
+    u8 data[POKEMON_NAME_LENGTH + 1];
 };
 
 extern volatile struct PokectxCheatMailbox gPokectxCheatMailbox;

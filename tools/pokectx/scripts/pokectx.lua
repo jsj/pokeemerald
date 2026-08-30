@@ -82,7 +82,7 @@ local function onClientData(id)
 		stopClient(id)
 		return
 	end
-	local command, arg1, arg2, nonce = request:match('^cheat%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)$')
+	local command, arg1, arg2, nonce, dataHex = request:match('^cheat%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+([%x%-]+)$')
 	if not command then
 		client:send('{"error":"unknown request"}\n')
 		stopClient(id)
@@ -101,6 +101,17 @@ local function onClientData(id)
 	emu:write8(ADDRESS.cheatMailbox + 14, command)
 	emu:write8(ADDRESS.cheatMailbox + 15, 1)
 	emu:write32(ADDRESS.cheatMailbox + 16, 0)
+	for offset = 0, 10 do emu:write8(ADDRESS.cheatMailbox + 20 + offset, 0xFF) end
+	if dataHex ~= '-' then
+		if not dataHex:match('^%x+$') or #dataHex % 2 ~= 0 or #dataHex > 22 then
+			client:send('{"error":"invalid cheat data"}\n')
+			stopClient(id)
+			return
+		end
+		for offset = 0, (#dataHex / 2) - 1 do
+			emu:write8(ADDRESS.cheatMailbox + 20 + offset, tonumber(dataHex:sub(offset * 2 + 1, offset * 2 + 2), 16))
+		end
+	end
 	emu:write32(ADDRESS.cheatMailbox, CHEAT_MAGIC)
 	pendingCheat = { id = id, nonce = nonce }
 end

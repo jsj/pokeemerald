@@ -38,6 +38,7 @@ type Pokemon struct {
 	Experience uint32   `json:"experience"`
 	HeldItemID uint16   `json:"held_item_id,omitempty"`
 	HeldItem   string   `json:"held_item,omitempty"`
+	Friendship uint8    `json:"friendship"`
 	MoveIDs    []uint16 `json:"move_ids"`
 	Moves      []string `json:"moves"`
 	MovePP     []int    `json:"move_pp"`

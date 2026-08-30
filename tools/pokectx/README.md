@@ -52,6 +52,13 @@ pokectx cheats forget MARSHTOMP TACKLE
 pokectx cheats learn MARSHTOMP ICE_BEAM
 pokectx cheats heal
 pokectx cheats teleport SLATEPORT_CITY 19 20
+pokectx cheats hold MARSHTOMP LEFTOVERS
+pokectx cheats friendship MARSHTOMP 255
+pokectx cheats clone MARSHTOMP
+pokectx cheats evolve MARSHTOMP
+pokectx cheats rename MARSHTOMP MUDDY
+pokectx cheats badge STONE
+pokectx cheats badge ALL
 ```
 
 Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
@@ -65,6 +72,10 @@ The `learn` command requires an empty move slot. If the Pokémon knows four move
 Granted Pokémon use the game's normal gift flow: they join the party when there is room, otherwise they go to Pokémon Storage. The command fails without changing the save if both are full.
 The `--shiny` option guarantees that a Pokémon from `give` is shiny. Team and snapshot output identify shiny Pokémon.
 The `heal` command restores party HP, PP, and status. The `teleport` command rejects unknown maps, invalid coordinates, blocked tiles, and occupied tiles.
+The `hold` command replaces the held item. Use `NONE` to remove the item. The replaced item does not return to the bag.
+The `friendship` command accepts values from 0 through 255. The `clone` command copies the complete Pokémon into the party or Pokémon Storage.
+The `evolve` command starts the normal evolution scene. If a Pokémon has multiple evolution branches, add the target species.
+The `rename` command accepts 1 to 10 supported game characters. The `badge` command grants one of the eight Hoenn Gym Badges.
 
 ### Automatic connection on the Mac mini
 
