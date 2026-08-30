@@ -33,6 +33,7 @@ var primaryCommands = []string{
 	"snapshot",
 	"watch",
 	"save",
+	"maps",
 	"cheats",
 }
 
@@ -54,6 +55,9 @@ func (e reportedError) Error() string { return "command reported a structured fa
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
 		return writeRootUsage(stdout)
+	}
+	if args[0] == "maps" {
+		return runMaps(args[1:], stdout)
 	}
 	if host := os.Getenv("POKECTX_SSH_HOST"); host != "" && os.Getenv("POKECTX_REMOTE") == "" {
 		return runSSH(ctx, host, args, stdout, stderr)
@@ -138,6 +142,37 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+func runMaps(args []string, stdout io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx maps <list|find QUERY>")
+		return nil
+	}
+	var query string
+	switch args[0] {
+	case "list":
+		if len(args) != 1 {
+			return errors.New("usage: pokectx maps list")
+		}
+	case "find":
+		if len(args) < 2 {
+			return errors.New("usage: pokectx maps find QUERY")
+		}
+		query = strings.Join(args[1:], " ")
+	default:
+		return fmt.Errorf("unknown maps command %q", args[0])
+	}
+	maps := catalog.Default.MapEntries(query)
+	result := struct {
+		SchemaVersion int                `json:"schema_version"`
+		Query         string             `json:"query,omitempty"`
+		Count         int                `json:"count"`
+		Maps          []catalog.MapEntry `json:"maps"`
+	}{model.SchemaVersion, query, len(maps), maps}
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)

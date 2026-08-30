@@ -6,6 +6,22 @@ Use `pokectx team` to see the Pokémon that you carry. Use `pokectx bag` to see 
 
 The old `party` and `inventory` commands remain available as aliases.
 
+## Find maps
+
+List every map from the decomp catalog:
+
+```bash
+pokectx maps list
+```
+
+Find maps by an enum name or display name:
+
+```bash
+pokectx maps find "sky pillar"
+```
+
+These commands do not require a running game.
+
 ## Build
 
 ```bash

@@ -25,6 +25,31 @@ func TestDoctorFailureIsStructuredOnce(t *testing.T) {
 	}
 }
 
+func TestMapsFindUsesDecompCatalogWithoutGameConnection(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(t.Context(), []string{"maps", "find", "sky pillar"}, &output, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `"id": "MAP_SKY_PILLAR_3_F"`) {
+		t.Fatalf("output = %s", output.String())
+	}
+	if strings.Contains(output.String(), `MAP_GRANITE_CAVE`) {
+		t.Fatalf("unrelated map is in output: %s", output.String())
+	}
+}
+
+func TestMapsListIncludesMapCoordinates(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(t.Context(), []string{"maps", "list"}, &output, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, wanted := range []string{`"id": "MAP_SLATEPORT_CITY"`, `"map_group": 0`, `"map_num": 1`} {
+		if !strings.Contains(output.String(), wanted) {
+			t.Fatalf("output does not contain %s", wanted)
+		}
+	}
+}
+
 func TestPrepareLevelCheatUsesTeamSlot(t *testing.T) {
 	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", Species: "Marshtomp", Level: 22}}}
 	request, before, after, err := prepareCheat([]string{"level", "marshtomp", "25"}, snapshot)

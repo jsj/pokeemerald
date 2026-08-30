@@ -2,8 +2,16 @@ package catalog
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
+
+type MapEntry struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	MapGroup int    `json:"map_group"`
+	MapNum   int    `json:"map_num"`
+}
 
 type Catalog struct {
 	Maps      map[uint16]string
@@ -20,6 +28,30 @@ func (c Catalog) Map(group, number int) (string, string) {
 		return fmt.Sprintf("MAP_%d_%d", group, number), fmt.Sprintf("Unknown map (%d,%d)", group, number)
 	}
 	return name, humanize(name)
+}
+
+func (c Catalog) MapEntries(query string) []MapEntry {
+	wanted := normalize(query)
+	entries := make([]MapEntry, 0, len(c.Maps))
+	for packedID, id := range c.Maps {
+		mapName := humanize(id)
+		if wanted != "" && !strings.Contains(normalize(id), wanted) && !strings.Contains(normalize(mapName), wanted) {
+			continue
+		}
+		entries = append(entries, MapEntry{
+			ID:       id,
+			Name:     mapName,
+			MapGroup: int(packedID >> 8),
+			MapNum:   int(packedID & 0xFF),
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].MapGroup != entries[j].MapGroup {
+			return entries[i].MapGroup < entries[j].MapGroup
+		}
+		return entries[i].MapNum < entries[j].MapNum
+	})
+	return entries
 }
 
 func (c Catalog) SpeciesName(id uint16) string { return name(c.Species, id, "species") }
