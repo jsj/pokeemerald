@@ -57,6 +57,46 @@ pokectx snapshot --save /path/to/pokeemerald.sav
 
 It validates both rotating Emerald save slots, sector signatures, and checksums. It chooses the newest complete slot. Files with mGBA metadata after the 128 KiB flash image are accepted.
 
+## Manage and sync saves
+
+Pokéctx uses this local save by default on macOS:
+
+```text
+~/Library/Application Support/Pokemon Emerald Pokectx/Pokemon Emerald.sav
+```
+
+Export a validated copy without changing the active save:
+
+```bash
+pokectx save export --to ~/Desktop/emerald.sav
+```
+
+Import a save:
+
+```bash
+pokectx save import --from ~/Downloads/emerald.sav
+```
+
+Close mGBA before an import. Pokéctx validates the source and keeps the current save in `.pokectx-backups` before it installs the imported file.
+
+Set these private values in `local.env` to use Cloudflare R2:
+
+```bash
+export POKECTX_R2_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+export POKECTX_R2_BUCKET=pokectx-saves
+export POKECTX_R2_ACCESS_KEY_ID=...
+export POKECTX_R2_SECRET_ACCESS_KEY=...
+```
+
+Back up the local save or synchronize it with the newest R2 save:
+
+```bash
+pokectx save backup
+pokectx save sync
+```
+
+Backups are immutable objects. `save sync` compares the Emerald save counter and SHA-256 hash. It stops on a conflict instead of choosing a save silently.
+
 ## Test
 
 Run the routine offline tests:

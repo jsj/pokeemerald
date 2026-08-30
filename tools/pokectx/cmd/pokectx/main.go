@@ -15,6 +15,7 @@ import (
 	"github.com/jsj/pokectx/internal/catalog"
 	"github.com/jsj/pokectx/internal/game"
 	"github.com/jsj/pokectx/internal/model"
+	"github.com/jsj/pokectx/internal/savecloud"
 )
 
 const version = "0.1.0"
@@ -36,11 +37,14 @@ func (e reportedError) Error() string { return "command reported a structured fa
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx <doctor|status|location|party|inventory|progress|next|snapshot|watch> [--save FILE]")
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx <doctor|status|location|party|inventory|progress|next|snapshot|watch|save> [options]")
 		return nil
 	}
 	if host := os.Getenv("POKECTX_SSH_HOST"); host != "" && os.Getenv("POKECTX_REMOTE") == "" {
 		return runSSH(ctx, host, args, stdout, stderr)
+	}
+	if args[0] == "save" {
+		return runSave(ctx, args[1:], stdout)
 	}
 	reader, err := selectReader(args)
 	if err != nil {
@@ -97,6 +101,73 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		}{model.SchemaVersion, snapshot.Next, snapshot.Evidence}
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
+	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+func runSave(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx save <export --to FILE|import --from FILE|backup|sync> [--save FILE]")
+		return nil
+	}
+	localPath, err := savecloud.DefaultSavePath()
+	if err != nil {
+		return err
+	}
+	var source, destination string
+	for index := 1; index < len(args); index++ {
+		if index+1 >= len(args) {
+			return fmt.Errorf("%s needs a value", args[index])
+		}
+		value := args[index+1]
+		switch args[index] {
+		case "--save":
+			localPath = value
+		case "--from":
+			source = value
+		case "--to":
+			destination = value
+		default:
+			return fmt.Errorf("unknown option %q", args[index])
+		}
+		index++
+	}
+	address := os.Getenv("POKECTX_ADDRESS")
+	var result savecloud.Result
+	switch args[0] {
+	case "export":
+		if destination == "" {
+			return errors.New("save export needs --to FILE")
+		}
+		result, err = savecloud.Export(ctx, localPath, destination)
+	case "import":
+		if source == "" {
+			return errors.New("save import needs --from FILE")
+		}
+		result, err = savecloud.Import(ctx, source, localPath, address)
+	case "backup":
+		var cloud *savecloud.R2
+		cloud, err = savecloud.NewR2(ctx)
+		if err == nil {
+			var local savecloud.File
+			local, err = savecloud.ReadValid(ctx, localPath)
+			if err == nil {
+				result, err = cloud.Backup(ctx, local)
+			}
+		}
+	case "sync":
+		var cloud *savecloud.R2
+		cloud, err = savecloud.NewR2(ctx)
+		if err == nil {
+			result, err = cloud.Sync(ctx, localPath, address)
+		}
+	default:
+		return fmt.Errorf("unknown save command %q", args[0])
+	}
+	if err != nil {
+		return err
 	}
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
