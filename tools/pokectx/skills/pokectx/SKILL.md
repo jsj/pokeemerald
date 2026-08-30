@@ -1,6 +1,6 @@
 ---
 name: pokectx
-description: Use Pokéctx for read-only Pokémon Emerald location, party, inventory, progress, next-task, connection, and save questions.
+description: Use Pokéctx for read-only Pokémon Emerald location, team, bag, progress, next-task, connection, and save questions.
 ---
 
 # Pokéctx
@@ -19,8 +19,8 @@ The command writes JSON to standard output.
 | Connection or save status | `doctor` |
 | General game summary | `doctor`, then `status` |
 | Current location | `doctor`, then `location` |
-| Current party | `doctor`, then `party` |
-| Badges and key items | `doctor`, then `inventory` |
+| Current Pokémon team | `doctor`, then `team` |
+| Bag, badges, and key items | `doctor`, then `bag` |
 | Story milestones | `doctor`, then `progress` |
 | Next task | `doctor`, then `next` |
 | Complete game state | `doctor`, then `snapshot` |

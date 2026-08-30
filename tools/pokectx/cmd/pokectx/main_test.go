@@ -29,3 +29,16 @@ func TestShellQuotePreservesSpacesAndApostrophes(t *testing.T) {
 		t.Fatalf("shellQuote() = %q, want %q", got, want)
 	}
 }
+
+func TestHelpUsesClearCommandNames(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(t.Context(), nil, &output, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "team|bag") {
+		t.Fatalf("output = %s", output.String())
+	}
+	if strings.Contains(output.String(), "party|inventory") {
+		t.Fatalf("legacy names are in primary help: %s", output.String())
+	}
+}

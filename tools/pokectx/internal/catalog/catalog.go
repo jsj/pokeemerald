@@ -3,10 +3,11 @@ package catalog
 import "fmt"
 
 type Catalog struct {
-	Maps    map[uint16]string
-	Species map[uint16]string
-	Moves   map[uint16]string
-	Items   map[uint16]string
+	Maps      map[uint16]string
+	Species   map[uint16]string
+	Moves     map[uint16]string
+	Items     map[uint16]string
+	Abilities map[uint16]string
 }
 
 func (c Catalog) Map(group, number int) (string, string) {
@@ -21,6 +22,7 @@ func (c Catalog) Map(group, number int) (string, string) {
 func (c Catalog) SpeciesName(id uint16) string { return name(c.Species, id, "species") }
 func (c Catalog) MoveName(id uint16) string    { return name(c.Moves, id, "move") }
 func (c Catalog) ItemName(id uint16) string    { return name(c.Items, id, "item") }
+func (c Catalog) AbilityName(id uint16) string { return name(c.Abilities, id, "ability") }
 
 func name(values map[uint16]string, id uint16, kind string) string {
 	if value, ok := values[id]; ok {
@@ -30,7 +32,7 @@ func name(values map[uint16]string, id uint16, kind string) string {
 }
 
 func humanize(value string) string {
-	for _, prefix := range []string{"MAP_", "SPECIES_", "MOVE_", "ITEM_"} {
+	for _, prefix := range []string{"MAP_", "SPECIES_", "MOVE_", "ITEM_", "ABILITY_"} {
 		if len(value) > len(prefix) && value[:len(prefix)] == prefix {
 			value = value[len(prefix):]
 		}

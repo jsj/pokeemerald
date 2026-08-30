@@ -20,6 +20,20 @@ import (
 
 const version = "0.1.0"
 
+var primaryCommands = []string{
+	"doctor",
+	"status",
+	"location",
+	"team",
+	"bag",
+	"battle",
+	"progress",
+	"next",
+	"snapshot",
+	"watch",
+	"save",
+}
+
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		var reported reportedError
@@ -37,8 +51,7 @@ func (e reportedError) Error() string { return "command reported a structured fa
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx <doctor|status|location|party|inventory|progress|next|snapshot|watch|save> [options]")
-		return nil
+		return writeRootUsage(stdout)
 	}
 	if host := os.Getenv("POKECTX_SSH_HOST"); host != "" && os.Getenv("POKECTX_REMOTE") == "" {
 		return runSSH(ctx, host, args, stdout, stderr)
@@ -74,19 +87,37 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			Location      model.Location `json:"location"`
 			Evidence      model.Evidence `json:"evidence"`
 		}{model.SchemaVersion, snapshot.Location, snapshot.Evidence}
-	case "party":
+	case "team":
+		result = struct {
+			SchemaVersion int             `json:"schema_version"`
+			Team          []model.Pokemon `json:"team"`
+			Evidence      model.Evidence  `json:"evidence"`
+		}{model.SchemaVersion, snapshot.Team, snapshot.Evidence}
+	case "party": // Backward-compatible alias for team.
 		result = struct {
 			SchemaVersion int             `json:"schema_version"`
 			Party         []model.Pokemon `json:"party"`
 			Evidence      model.Evidence  `json:"evidence"`
-		}{model.SchemaVersion, snapshot.Party, snapshot.Evidence}
-	case "inventory":
+		}{model.SchemaVersion, snapshot.Team, snapshot.Evidence}
+	case "bag", "inventory":
 		result = struct {
 			SchemaVersion int            `json:"schema_version"`
+			Money         uint32         `json:"money"`
+			Items         []model.Item   `json:"items"`
+			PokeBalls     []model.Item   `json:"poke_balls"`
+			TMsAndHMs     []model.Item   `json:"tms_and_hms"`
+			Berries       []model.Item   `json:"berries"`
 			Badges        []string       `json:"badges"`
 			KeyItems      []model.Item   `json:"key_items"`
+			RepelSteps    uint16         `json:"repel_steps"`
 			Evidence      model.Evidence `json:"evidence"`
-		}{model.SchemaVersion, snapshot.Badges, snapshot.KeyItems, snapshot.Evidence}
+		}{model.SchemaVersion, snapshot.Money, snapshot.Items, snapshot.PokeBalls, snapshot.TMsAndHMs, snapshot.Berries, snapshot.Badges, snapshot.KeyItems, snapshot.RepelSteps, snapshot.Evidence}
+	case "battle":
+		result = struct {
+			SchemaVersion int            `json:"schema_version"`
+			Battle        *model.Battle  `json:"battle"`
+			Evidence      model.Evidence `json:"evidence"`
+		}{model.SchemaVersion, snapshot.Battle, snapshot.Evidence}
 	case "progress":
 		result = struct {
 			SchemaVersion int            `json:"schema_version"`
@@ -105,6 +136,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
+}
+
+func writeRootUsage(output io.Writer) error {
+	_, err := fmt.Fprintf(
+		output,
+		"usage: pokectx <%s> [options]\n",
+		strings.Join(primaryCommands, "|"),
+	)
+	return err
 }
 
 func runSave(ctx context.Context, args []string, stdout io.Writer) error {
@@ -291,7 +331,7 @@ func watch(ctx context.Context, reader adapter.Reader, w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		key := strings.Join([]string{snapshot.Location.MapID, fmt.Sprint(snapshot.Save.Counter), fmt.Sprint(len(snapshot.Badges)), fmt.Sprint(len(snapshot.Party))}, ":")
+		key := strings.Join([]string{snapshot.Location.MapID, fmt.Sprint(snapshot.Save.Counter), fmt.Sprint(len(snapshot.Badges)), fmt.Sprint(len(snapshot.Team))}, ":")
 		if key != previous {
 			if err := encoder.Encode(snapshot); err != nil {
 				return err

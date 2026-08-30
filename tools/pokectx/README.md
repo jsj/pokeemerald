@@ -2,6 +2,10 @@
 
 Pokéctx is a read-only Agent Plugin for a live Pokémon Emerald game. The plugin uses a Go command and an mGBA Lua adapter.
 
+Use `pokectx team` to see the Pokémon that you carry. Use `pokectx bag` to see badges and key items.
+
+The old `party` and `inventory` commands remain available as aliases.
+
 ## Build
 
 ```bash

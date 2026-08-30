@@ -21,6 +21,10 @@ type Observation struct {
 	PartyHex        string     `json:"party_hex"`
 	PartyCount      uint8      `json:"party_count"`
 	SaveCounter     uint32     `json:"save_counter"`
+	InBattle        bool       `json:"in_battle,omitempty"`
+	BattleTypeFlags uint32     `json:"battle_type_flags,omitempty"`
+	BattlersCount   uint8      `json:"battlers_count,omitempty"`
+	BattleMonsHex   string     `json:"battle_mons_hex,omitempty"`
 	Source          string     `json:"source,omitempty"`
 	FileModifiedAt  *time.Time `json:"file_modified_at,omitempty"`
 }

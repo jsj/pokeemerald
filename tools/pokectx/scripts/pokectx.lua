@@ -7,9 +7,13 @@ local ADDRESS = {
 	party = 0x020244EC,
 	partyCount = 0x020244E9,
 	saveCounter = 0x03006200,
+	mainInBattle = 0x030026F9,
+	battleTypeFlags = 0x02022FEC,
+	battlersCount = 0x0202406C,
+	battleMons = 0x02024084,
 }
 
-local SIZE = { saveBlock1 = 0x3D88, saveBlock2 = 0x0F2C, partyMon = 100 }
+local SIZE = { saveBlock1 = 0x3D88, saveBlock2 = 0x0F2C, partyMon = 100, battleMon = 0x58 }
 local server = nil
 local clients = {}
 local nextClientID = 1
@@ -34,13 +38,17 @@ local function snapshot()
 	if saveBlock1 == 0 or saveBlock2 == 0 then error('save blocks are not initialized') end
 	if partyCount > 6 then error('party count is invalid') end
 	local observedAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
+	local inBattle = emu:read8(ADDRESS.mainInBattle) & 0x02 ~= 0
+	local battlersCount = inBattle and emu:read8(ADDRESS.battlersCount) or 0
+	local battleMons = inBattle and hex(emu:readRange(ADDRESS.battleMons, battlersCount * SIZE.battleMon)) or ''
 	return string.format(
-		'{"protocol_version":1,"game_code":"%s","rom_crc32":"%s","observed_at":"%s","save_block_1_hex":"%s","save_block_2_hex":"%s","party_hex":"%s","party_count":%d,"save_counter":%u}\n',
+		'{"protocol_version":1,"game_code":"%s","rom_crc32":"%s","observed_at":"%s","save_block_1_hex":"%s","save_block_2_hex":"%s","party_hex":"%s","party_count":%d,"save_counter":%u,"in_battle":%s,"battle_type_flags":%u,"battlers_count":%d,"battle_mons_hex":"%s"}\n',
 		jsonEscape(emu:getGameCode()), crc32(), observedAt,
 		hex(emu:readRange(saveBlock1, SIZE.saveBlock1)),
 		hex(emu:readRange(saveBlock2, SIZE.saveBlock2)),
 		hex(emu:readRange(ADDRESS.party, partyCount * SIZE.partyMon)),
-		partyCount, emu:read32(ADDRESS.saveCounter))
+		partyCount, emu:read32(ADDRESS.saveCounter), tostring(inBattle),
+		inBattle and emu:read32(ADDRESS.battleTypeFlags) or 0, battlersCount, battleMons)
 end
 
 local function stopClient(id)
