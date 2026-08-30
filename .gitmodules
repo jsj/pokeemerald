@@ -1,0 +1,3 @@
+[submodule "emulator/mgba"]
+	path = emulator/mgba
+	url = ../mgba

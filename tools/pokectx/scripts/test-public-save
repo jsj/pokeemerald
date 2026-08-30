@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+plugin_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+fixture_url=https://raw.githubusercontent.com/Bl1ndBeholder/pokemon-saves/main/emerald/011020251345.sav
+expected_sha=e88d19392f23c0df2b4d6a817d9aa244defd6271189aad4aacb87272f9e199b2
+fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/pokectx-public-save.XXXXXX")
+trap 'rm -rf "$fixture_dir"' EXIT HUP INT TERM
+fixture_path=$fixture_dir/emerald.sav
+
+curl --fail --silent --show-error --location "$fixture_url" --output "$fixture_path"
+actual_sha=$(shasum -a 256 "$fixture_path" | awk '{print $1}')
+if [ "$actual_sha" != "$expected_sha" ]; then
+    echo "public save checksum mismatch: got $actual_sha" >&2
+    exit 1
+fi
+
+output=$(cd "$plugin_dir" && env -u POKECTX_SSH_HOST -u POKECTX_REMOTE_COMMAND \
+    -u POKECTX_REMOTE go run ./cmd/pokectx snapshot --save "$fixture_path")
+printf '%s\n' "$output" | grep -q '"player_name": "DIXIE"'
+printf '%s\n' "$output" | grep -q '"counter": 41'
+printf '%s\n' "$output" | grep -q '"title": "Challenge Flannery at the Lavaridge Gym"'
+echo "Public Emerald save integration test passed."

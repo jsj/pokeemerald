@@ -1,0 +1,18 @@
+{
+  "name": "pokectx",
+  "version": "0.1.0",
+  "description": "Read live Pokémon Emerald context with named, read-only tools.",
+  "author": {
+    "name": "James Jackson"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Pokéctx",
+    "shortDescription": "Read your live Pokémon Emerald game.",
+    "longDescription": "Pokéctx gives Codex read-only access to your current Pokémon Emerald location, party, progress, and save status.",
+    "developerName": "James Jackson",
+    "category": "Developer Tools",
+    "capabilities": ["Local game context", "SSH game context"],
+    "defaultPrompt": "Use $pokectx to tell me where I am and what I should do next."
+  }
+}

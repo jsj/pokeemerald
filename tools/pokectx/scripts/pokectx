@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+plugin_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ -f "$plugin_dir/local.env" ]; then
+    # This is a private, user-managed connection file. Do not commit it.
+    . "$plugin_dir/local.env"
+fi
+if [ -x "$plugin_dir/bin/pokectx" ]; then
+    exec "$plugin_dir/bin/pokectx" "$@"
+fi
+cd "$plugin_dir"
+exec go run ./cmd/pokectx "$@"
