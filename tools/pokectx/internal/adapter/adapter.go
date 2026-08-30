@@ -33,6 +33,48 @@ type Reader interface {
 	Observe(context.Context) (Observation, error)
 }
 
+type CheatRequest struct {
+	Command uint8
+	Arg1    uint32
+	Arg2    uint16
+	Nonce   uint32
+}
+
+type CheatResponse struct {
+	ProtocolVersion int    `json:"protocol_version"`
+	Nonce           uint32 `json:"nonce"`
+	Status          uint8  `json:"status"`
+	Result          uint32 `json:"result"`
+}
+
+func (r SocketReader) ExecuteCheat(ctx context.Context, request CheatRequest) (CheatResponse, error) {
+	var response CheatResponse
+	timeout := r.Timeout
+	if timeout == 0 {
+		timeout = 3 * time.Second
+	}
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(ctx, "tcp", r.Address)
+	if err != nil {
+		return response, fmt.Errorf("connect to mGBA adapter at %s: %w", r.Address, err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+	if _, err := fmt.Fprintf(conn, "cheat %d %d %d %d\n", request.Command, request.Arg1, request.Arg2, request.Nonce); err != nil {
+		return response, fmt.Errorf("send cheat request: %w", err)
+	}
+	if err := json.NewDecoder(conn).Decode(&response); err != nil {
+		return response, fmt.Errorf("decode cheat response: %w", err)
+	}
+	if response.ProtocolVersion != 1 || response.Nonce != request.Nonce {
+		return response, fmt.Errorf("invalid cheat response")
+	}
+	if response.Status != 2 {
+		return response, fmt.Errorf("cheat failed with game status %d", response.Status)
+	}
+	return response, nil
+}
+
 type SocketReader struct {
 	Address string
 	Timeout time.Duration

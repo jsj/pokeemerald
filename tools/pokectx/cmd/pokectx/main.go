@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ var primaryCommands = []string{
 	"snapshot",
 	"watch",
 	"save",
+	"cheats",
 }
 
 func main() {
@@ -58,6 +60,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if args[0] == "save" {
 		return runSave(ctx, args[1:], stdout)
+	}
+	if args[0] == "cheats" {
+		return runCheats(ctx, args[1:], stdout)
 	}
 	reader, err := selectReader(args)
 	if err != nil {
@@ -136,6 +141,141 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
+}
+
+const pokectxCheatCRC32 = "8fc08ba1"
+
+func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|set-level POKEMON LEVEL|give-item ITEM QUANTITY> [--confirm]")
+		return nil
+	}
+	confirmed := false
+	values := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--confirm" {
+			confirmed = true
+		} else {
+			values = append(values, arg)
+		}
+	}
+	address := os.Getenv("POKECTX_ADDRESS")
+	if address == "" {
+		address = "127.0.0.1:8765"
+	}
+	reader := adapter.SocketReader{Address: address, Timeout: 3 * time.Second}
+	observation, err := reader.Observe(ctx)
+	if err != nil {
+		return err
+	}
+	snapshot, err := (game.Decoder{Catalog: catalog.Default}).Decode(observation)
+	if err != nil {
+		return err
+	}
+	if snapshot.Battle != nil {
+		return errors.New("cheats are unavailable during battle")
+	}
+	request, before, after, err := prepareCheat(values, snapshot)
+	if err != nil {
+		return err
+	}
+	result := map[string]any{
+		"schema_version": model.SchemaVersion,
+		"command":        strings.Join(values, " "),
+		"before":         before,
+		"after":          after,
+		"applied":        false,
+	}
+	if confirmed {
+		if strings.ToLower(observation.ROMCRC32) != pokectxCheatCRC32 {
+			return errors.New("the running ROM does not include the Pokéctx cheat mailbox")
+		}
+		request.Nonce = uint32(time.Now().UnixNano())
+		if _, err := reader.ExecuteCheat(ctx, request); err != nil {
+			return err
+		}
+		result["applied"] = true
+	} else {
+		result["confirmation"] = "preview only; repeat with --confirm to apply"
+	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest, any, any, error) {
+	var request adapter.CheatRequest
+	if len(args) == 0 {
+		return request, nil, nil, errors.New("missing cheat command")
+	}
+	switch args[0] {
+	case "set-money":
+		if len(args) != 2 {
+			return request, nil, nil, errors.New("usage: pokectx cheats set-money AMOUNT [--confirm]")
+		}
+		amount, err := parseUint(args[1], 999999)
+		if err != nil {
+			return request, nil, nil, fmt.Errorf("money: %w", err)
+		}
+		request.Command, request.Arg1 = 1, uint32(amount)
+		return request, snapshot.Money, amount, nil
+	case "set-level":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats set-level POKEMON LEVEL [--confirm]")
+		}
+		level, err := parseUint(args[2], 100)
+		if err != nil || level == 0 {
+			return request, nil, nil, errors.New("level must be between 1 and 100")
+		}
+		wanted := normalizedName(args[1])
+		for index, pokemon := range snapshot.Team {
+			if normalizedName(pokemon.Nickname) == wanted || normalizedName(pokemon.Species) == wanted {
+				request.Command, request.Arg1, request.Arg2 = 2, uint32(index), uint16(level)
+				return request, map[string]any{"pokemon": pokemon.Nickname, "level": pokemon.Level}, map[string]any{"pokemon": pokemon.Nickname, "level": level}, nil
+			}
+		}
+		return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+	case "give-item":
+		if len(args) != 3 {
+			return request, nil, nil, errors.New("usage: pokectx cheats give-item ITEM QUANTITY [--confirm]")
+		}
+		itemID, ok := catalog.Default.FindItem(args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("unknown item %q", args[1])
+		}
+		quantity, err := parseUint(args[2], 999)
+		if err != nil || quantity == 0 {
+			return request, nil, nil, errors.New("quantity must be between 1 and 999")
+		}
+		current := itemQuantity(snapshot, itemID)
+		request.Command, request.Arg1, request.Arg2 = 3, uint32(itemID), uint16(quantity)
+		return request, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current}, map[string]any{"item": catalog.Default.ItemName(itemID), "quantity": current + int(quantity)}, nil
+	default:
+		return request, nil, nil, fmt.Errorf("unknown cheat command %q", args[0])
+	}
+}
+
+func parseUint(value string, maximum uint64) (uint64, error) {
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil || parsed > maximum {
+		return 0, fmt.Errorf("must be between 0 and %d", maximum)
+	}
+	return parsed, nil
+}
+
+func normalizedName(value string) string {
+	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToUpper(value))
+}
+
+func itemQuantity(snapshot model.Snapshot, id uint16) int {
+	for _, pocket := range [][]model.Item{snapshot.Items, snapshot.KeyItems, snapshot.PokeBalls, snapshot.TMsAndHMs, snapshot.Berries} {
+		for _, item := range pocket {
+			if item.ID == id {
+				return int(item.Quantity)
+			}
+		}
+	}
+	return 0
 }
 
 func writeRootUsage(output io.Writer) error {

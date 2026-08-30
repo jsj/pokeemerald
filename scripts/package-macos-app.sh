@@ -32,6 +32,13 @@ mv "$output_app/Contents/MacOS/mGBA" "$output_app/Contents/MacOS/EmeraldRuntime"
 cp "$rom_path" "$output_app/Contents/Resources/Pokemon Emerald.gba"
 mkdir -p "$output_app/Contents/Resources/autorun"
 cp "$repo_root/tools/pokectx/scripts/pokectx.lua" "$output_app/Contents/Resources/autorun/pokectx.lua"
+mailbox_address=$(awk '/gPokectxCheatMailbox$/ { print $1; exit }' "$repo_root/pokeemerald.map")
+case "$mailbox_address" in
+	0x02??????) ;;
+	*) printf 'invalid Pokéctx cheat mailbox address: %s\n' "$mailbox_address" >&2; exit 65 ;;
+esac
+sed -i '' "s/cheatMailbox = 0x[0-9A-Fa-f]*/cheatMailbox = $mailbox_address/" \
+	"$output_app/Contents/Resources/autorun/pokectx.lua"
 if [ -f "$repo_root/AppIcon.icns" ]; then
 	cp "$repo_root/AppIcon.icns" "$output_app/Contents/Resources/PokemonEmerald.icns"
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleIconFile PokemonEmerald.icns' "$output_app/Contents/Info.plist"

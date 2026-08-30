@@ -1,6 +1,6 @@
 # Pokéctx
 
-Pokéctx is a read-only Agent Plugin for a live Pokémon Emerald game. The plugin uses a Go command and an mGBA Lua adapter.
+Pokéctx is an Agent Plugin for a live Pokémon Emerald game. Its normal commands are read-only. An explicit `cheats` namespace can modify a compatible Pokéctx ROM.
 
 Use `pokectx team` to see the Pokémon that you carry. Use `pokectx bag` to see badges and key items.
 
@@ -20,7 +20,25 @@ go test ./...
 3. Load `scripts/pokectx.lua`.
 4. Run `bin/pokectx doctor`.
 
-The adapter listens only on `127.0.0.1:8765`. It reads game memory and does not write game memory.
+The adapter listens only on `127.0.0.1:8765`. Normal commands only read memory.
+
+## Optional cheats
+
+Cheat commands preview their change by default:
+
+```bash
+pokectx cheats set-money 5000
+pokectx cheats set-level MARSHTOMP 25
+pokectx cheats give-item REPEL 10
+```
+
+Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
+
+```bash
+pokectx cheats give-item REPEL 10 --confirm
+```
+
+The game applies changes through its own `SetMoney`, `AddBagItem`, experience-table, and stat-calculation functions. Setting a level does not automatically teach skipped moves or trigger an evolution.
 
 ### Automatic connection on the Mac mini
 

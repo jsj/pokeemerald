@@ -11,12 +11,16 @@ local ADDRESS = {
 	battleTypeFlags = 0x02022FEC,
 	battlersCount = 0x0202406C,
 	battleMons = 0x02024084,
+	cheatMailbox = 0x0203CF64,
 }
 
 local SIZE = { saveBlock1 = 0x3D88, saveBlock2 = 0x0F2C, partyMon = 100, battleMon = 0x58 }
 local server = nil
 local clients = {}
 local nextClientID = 1
+local pendingCheat = nil
+
+local CHEAT_MAGIC = 0x50584354
 
 local function hex(data)
 	return (data:gsub('.', function(char) return string.format('%02x', string.byte(char)) end))
@@ -71,15 +75,49 @@ local function onClientData(id)
 		return
 	end
 	request = request:match('^%s*(.-)%s*$')
-	if request ~= 'snapshot' then
+	if request == 'snapshot' then
+		local ok, response = pcall(snapshot)
+		if not ok then response = '{"error":"' .. jsonEscape(tostring(response)) .. '"}\n' end
+		client:send(response)
+		stopClient(id)
+		return
+	end
+	local command, arg1, arg2, nonce = request:match('^cheat%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)$')
+	if not command then
 		client:send('{"error":"unknown request"}\n')
 		stopClient(id)
 		return
 	end
-	local ok, response = pcall(snapshot)
-	if not ok then response = '{"error":"' .. jsonEscape(tostring(response)) .. '"}\n' end
-	client:send(response)
-	stopClient(id)
+	if pendingCheat or emu:read8(ADDRESS.cheatMailbox + 15) == 1 then
+		client:send('{"error":"another cheat command is pending"}\n')
+		stopClient(id)
+		return
+	end
+	command, arg1, arg2, nonce = tonumber(command), tonumber(arg1), tonumber(arg2), tonumber(nonce)
+	emu:write32(ADDRESS.cheatMailbox, 0)
+	emu:write32(ADDRESS.cheatMailbox + 4, nonce)
+	emu:write32(ADDRESS.cheatMailbox + 8, arg1)
+	emu:write16(ADDRESS.cheatMailbox + 12, arg2)
+	emu:write8(ADDRESS.cheatMailbox + 14, command)
+	emu:write8(ADDRESS.cheatMailbox + 15, 1)
+	emu:write32(ADDRESS.cheatMailbox + 16, 0)
+	emu:write32(ADDRESS.cheatMailbox, CHEAT_MAGIC)
+	pendingCheat = { id = id, nonce = nonce }
+end
+
+local function pollCheat()
+	if not pendingCheat then return end
+	local status = emu:read8(ADDRESS.cheatMailbox + 15)
+	if status == 1 then return end
+	local client = clients[pendingCheat.id]
+	if client then
+		client:send(string.format(
+			'{"protocol_version":1,"nonce":%u,"status":%u,"result":%u}\n',
+			pendingCheat.nonce, status, emu:read32(ADDRESS.cheatMailbox + 16)))
+	end
+	emu:write32(ADDRESS.cheatMailbox, 0)
+	stopClient(pendingCheat.id)
+	pendingCheat = nil
 end
 
 local function onAccept()
@@ -97,4 +135,5 @@ if not server then error('Pokéctx cannot bind 127.0.0.1:8765') end
 local ok, listenError = server:listen()
 if not ok then server:close(); error('Pokéctx cannot listen: ' .. tostring(listenError)) end
 server:add('received', onAccept)
+callbacks:add('frame', pollCheat)
 console:log('Pokéctx adapter listening on 127.0.0.1:8765')

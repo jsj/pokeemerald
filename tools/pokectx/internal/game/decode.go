@@ -17,6 +17,7 @@ const (
 	saveBlock2Size  = 0xF2C
 	teamPokemonSize = 100
 	supportedCRC32  = "1f1c08fb"
+	pokectxCRC32    = "8fc08ba1"
 	statusSleep     = 0x7
 	statusPoison    = 0x8
 	statusBurn      = 0x10
@@ -43,8 +44,9 @@ func (d Decoder) Decode(observation adapter.Observation) (model.Snapshot, error)
 	if observation.GameCode != "BPEE" && observation.GameCode != "AGB-BPEE" {
 		return model.Snapshot{}, fmt.Errorf("unsupported game code %q", observation.GameCode)
 	}
-	if observation.ROMCRC32 != "" && strings.ToLower(observation.ROMCRC32) != supportedCRC32 {
-		return model.Snapshot{}, fmt.Errorf("unsupported Pokémon Emerald ROM CRC32 %q; expected %s", observation.ROMCRC32, supportedCRC32)
+	crc := strings.ToLower(observation.ROMCRC32)
+	if crc != "" && crc != supportedCRC32 && crc != pokectxCRC32 {
+		return model.Snapshot{}, fmt.Errorf("unsupported Pokémon Emerald ROM CRC32 %q", observation.ROMCRC32)
 	}
 
 	group, number := int(int8(sb1[4])), int(int8(sb1[5]))

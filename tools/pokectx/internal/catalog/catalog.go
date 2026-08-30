@@ -1,6 +1,9 @@
 package catalog
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Catalog struct {
 	Maps      map[uint16]string
@@ -23,6 +26,21 @@ func (c Catalog) SpeciesName(id uint16) string { return name(c.Species, id, "spe
 func (c Catalog) MoveName(id uint16) string    { return name(c.Moves, id, "move") }
 func (c Catalog) ItemName(id uint16) string    { return name(c.Items, id, "item") }
 func (c Catalog) AbilityName(id uint16) string { return name(c.Abilities, id, "ability") }
+
+func (c Catalog) FindItem(value string) (uint16, bool) {
+	wanted := normalize(value)
+	for id, item := range c.Items {
+		if normalize(item) == wanted || normalize(humanize(item)) == wanted {
+			return id, true
+		}
+	}
+	return 0, false
+}
+
+func normalize(value string) string {
+	value = strings.ToUpper(value)
+	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(value)
+}
 
 func name(values map[uint16]string, id uint16, kind string) string {
 	if value, ok := values[id]; ok {

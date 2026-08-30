@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jsj/pokectx/internal/adapter"
+	"github.com/jsj/pokectx/internal/model"
 )
 
 func TestDoctorFailureIsStructuredOnce(t *testing.T) {
@@ -21,6 +22,38 @@ func TestDoctorFailureIsStructuredOnce(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), `"status": "error"`) {
 		t.Fatalf("output = %s", output.String())
+	}
+}
+
+func TestPrepareSetLevelCheatUsesTeamSlot(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", Species: "Marshtomp", Level: 22}}}
+	request, before, after, err := prepareCheat([]string{"set-level", "marshtomp", "25"}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 2 || request.Arg1 != 0 || request.Arg2 != 25 {
+		t.Fatalf("request = %#v", request)
+	}
+	if before == nil || after == nil {
+		t.Fatal("preview values are missing")
+	}
+}
+
+func TestPrepareGiveItemCheatAcceptsHumanName(t *testing.T) {
+	request, _, _, err := prepareCheat([]string{"give-item", "Super Potion", "3"}, model.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 3 || request.Arg1 != 22 || request.Arg2 != 3 {
+		t.Fatalf("request = %#v", request)
+	}
+}
+
+func TestPrepareCheatRejectsInvalidValues(t *testing.T) {
+	for _, args := range [][]string{{"set-money", "1000000"}, {"set-level", "MARSHTOMP", "0"}, {"give-item", "REPEL", "0"}} {
+		if _, _, _, err := prepareCheat(args, model.Snapshot{}); err == nil {
+			t.Fatalf("prepareCheat(%v) succeeded", args)
+		}
 	}
 }
 

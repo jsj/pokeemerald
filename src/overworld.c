@@ -66,6 +66,7 @@
 #include "constants/songs.h"
 #include "constants/trainer_hill.h"
 #include "constants/weather.h"
+#include "pokectx.h"
 
 struct CableClubPlayer
 {
@@ -1464,6 +1465,7 @@ void CB1_Overworld(void)
 
 static void OverworldBasic(void)
 {
+    Pokectx_ProcessCheatMailbox();
     ScriptContext_RunScript();
     RunTasks();
     AnimateSprites();
