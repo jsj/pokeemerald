@@ -35,6 +35,10 @@ func (c Catalog) FindSpecies(value string) (uint16, bool) {
 	return find(c.Species, value)
 }
 
+func (c Catalog) FindMove(value string) (uint16, bool) {
+	return find(c.Moves, value)
+}
+
 func find(values map[uint16]string, value string) (uint16, bool) {
 	wanted := normalize(value)
 	for id, candidate := range values {

@@ -13,18 +13,19 @@ import (
 )
 
 const (
-	saveBlock1Size     = 0x3D88
-	saveBlock2Size     = 0xF2C
-	teamPokemonSize    = 100
-	supportedCRC32     = "1f1c08fb"
-	legacyPokectxCRC32 = "8fc08ba1"
-	pokectxCRC32       = "7525584e"
-	statusSleep        = 0x7
-	statusPoison       = 0x8
-	statusBurn         = 0x10
-	statusFreeze       = 0x20
-	statusParalyze     = 0x40
-	statusToxic        = 0x80
+	saveBlock1Size          = 0x3D88
+	saveBlock2Size          = 0xF2C
+	teamPokemonSize         = 100
+	supportedCRC32          = "1f1c08fb"
+	legacyPokectxCRC32      = "8fc08ba1"
+	legacyPokectxCheatCRC32 = "7525584e"
+	pokectxCRC32            = "db376d2f"
+	statusSleep             = 0x7
+	statusPoison            = 0x8
+	statusBurn              = 0x10
+	statusFreeze            = 0x20
+	statusParalyze          = 0x40
+	statusToxic             = 0x80
 )
 
 type Decoder struct{ Catalog catalog.Catalog }
@@ -46,7 +47,7 @@ func (d Decoder) Decode(observation adapter.Observation) (model.Snapshot, error)
 		return model.Snapshot{}, fmt.Errorf("unsupported game code %q", observation.GameCode)
 	}
 	crc := strings.ToLower(observation.ROMCRC32)
-	if crc != "" && crc != supportedCRC32 && crc != legacyPokectxCRC32 && crc != pokectxCRC32 {
+	if crc != "" && crc != supportedCRC32 && crc != legacyPokectxCRC32 && crc != legacyPokectxCheatCRC32 && crc != pokectxCRC32 {
 		return model.Snapshot{}, fmt.Errorf("unsupported Pokémon Emerald ROM CRC32 %q", observation.ROMCRC32)
 	}
 

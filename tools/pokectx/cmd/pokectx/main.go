@@ -143,11 +143,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	return encoder.Encode(result)
 }
 
-const pokectxCheatCRC32 = "7525584e"
+const pokectxCheatCRC32 = "db376d2f"
 
 func runCheats(ctx context.Context, args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|set-level POKEMON LEVEL|give-item ITEM QUANTITY|give SPECIES LEVEL> [--confirm]")
+		_, _ = fmt.Fprintln(stdout, "usage: pokectx cheats <set-money AMOUNT|level POKEMON LEVEL|give-item ITEM QUANTITY|give SPECIES LEVEL|learn POKEMON MOVE|forget POKEMON MOVE> [--confirm]")
 		return nil
 	}
 	confirmed := false
@@ -219,9 +219,9 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 		}
 		request.Command, request.Arg1 = 1, uint32(amount)
 		return request, snapshot.Money, amount, nil
-	case "set-level":
+	case "level":
 		if len(args) != 3 {
-			return request, nil, nil, errors.New("usage: pokectx cheats set-level POKEMON LEVEL [--confirm]")
+			return request, nil, nil, errors.New("usage: pokectx cheats level POKEMON LEVEL [--confirm]")
 		}
 		level, err := parseUint(args[2], 100)
 		if err != nil || level == 0 {
@@ -265,6 +265,43 @@ func prepareCheat(args []string, snapshot model.Snapshot) (adapter.CheatRequest,
 		pokemon := map[string]any{"species": catalog.Default.SpeciesName(speciesID), "level": level}
 		request.Command, request.Arg1, request.Arg2 = 4, uint32(speciesID), uint16(level)
 		return request, nil, pokemon, nil
+	case "learn", "forget":
+		if len(args) != 3 {
+			return request, nil, nil, fmt.Errorf("usage: pokectx cheats %s POKEMON MOVE [--confirm]", args[0])
+		}
+		teamIndex, pokemon, ok := findTeamPokemon(snapshot, args[1])
+		if !ok {
+			return request, nil, nil, fmt.Errorf("Pokémon %q is not in the team", args[1])
+		}
+		moveID, ok := catalog.Default.FindMove(args[2])
+		if !ok || moveID == 0 || moveID >= 355 {
+			return request, nil, nil, fmt.Errorf("unknown move %q", args[2])
+		}
+		moveName := catalog.Default.MoveName(moveID)
+		moveIndex := indexOfMove(pokemon, moveID)
+		before := map[string]any{"pokemon": pokemon.Nickname, "moves": pokemon.Moves}
+		afterMoves := append([]string(nil), pokemon.Moves...)
+		if args[0] == "learn" {
+			if moveIndex >= 0 {
+				return request, nil, nil, fmt.Errorf("%s already knows %s", pokemon.Nickname, moveName)
+			}
+			if len(pokemon.MoveIDs) >= 4 {
+				return request, nil, nil, fmt.Errorf("%s already knows four moves. Forget one move first", pokemon.Nickname)
+			}
+			request.Command = 5
+			afterMoves = append(afterMoves, moveName)
+		} else {
+			if moveIndex < 0 {
+				return request, nil, nil, fmt.Errorf("%s does not know %s", pokemon.Nickname, moveName)
+			}
+			if len(pokemon.MoveIDs) == 1 {
+				return request, nil, nil, fmt.Errorf("%s cannot forget its last move", pokemon.Nickname)
+			}
+			request.Command = 6
+			afterMoves = append(afterMoves[:moveIndex], afterMoves[moveIndex+1:]...)
+		}
+		request.Arg1, request.Arg2 = uint32(teamIndex), moveID
+		return request, before, map[string]any{"pokemon": pokemon.Nickname, "moves": afterMoves}, nil
 	default:
 		return request, nil, nil, fmt.Errorf("unknown cheat command %q", args[0])
 	}
@@ -280,6 +317,25 @@ func parseUint(value string, maximum uint64) (uint64, error) {
 
 func normalizedName(value string) string {
 	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToUpper(value))
+}
+
+func findTeamPokemon(snapshot model.Snapshot, value string) (int, model.Pokemon, bool) {
+	wanted := normalizedName(value)
+	for index, pokemon := range snapshot.Team {
+		if normalizedName(pokemon.Nickname) == wanted || normalizedName(pokemon.Species) == wanted {
+			return index, pokemon, true
+		}
+	}
+	return 0, model.Pokemon{}, false
+}
+
+func indexOfMove(pokemon model.Pokemon, moveID uint16) int {
+	for index, knownMoveID := range pokemon.MoveIDs {
+		if knownMoveID == moveID {
+			return index
+		}
+	}
+	return -1
 }
 
 func itemQuantity(snapshot model.Snapshot, id uint16) int {

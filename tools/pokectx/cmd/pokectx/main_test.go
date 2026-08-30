@@ -25,9 +25,9 @@ func TestDoctorFailureIsStructuredOnce(t *testing.T) {
 	}
 }
 
-func TestPrepareSetLevelCheatUsesTeamSlot(t *testing.T) {
+func TestPrepareLevelCheatUsesTeamSlot(t *testing.T) {
 	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", Species: "Marshtomp", Level: 22}}}
-	request, before, after, err := prepareCheat([]string{"set-level", "marshtomp", "25"}, snapshot)
+	request, before, after, err := prepareCheat([]string{"level", "marshtomp", "25"}, snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,6 +36,45 @@ func TestPrepareSetLevelCheatUsesTeamSlot(t *testing.T) {
 	}
 	if before == nil || after == nil {
 		t.Fatal("preview values are missing")
+	}
+}
+
+func TestPrepareLearnCheatUsesTeamSlotAndMove(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", MoveIDs: []uint16{33, 55, 189}, Moves: []string{"Tackle", "Water Gun", "Mud Slap"}}}}
+	request, before, after, err := prepareCheat([]string{"learn", "marshtomp", "Ice Beam"}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 5 || request.Arg1 != 0 || request.Arg2 != 58 {
+		t.Fatalf("request = %#v", request)
+	}
+	if before == nil || after == nil {
+		t.Fatal("preview values are missing")
+	}
+}
+
+func TestPrepareForgetCheatUsesKnownMove(t *testing.T) {
+	snapshot := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", MoveIDs: []uint16{33, 55}, Moves: []string{"Tackle", "Water Gun"}}}}
+	request, before, after, err := prepareCheat([]string{"forget", "marshtomp", "Tackle"}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Command != 6 || request.Arg1 != 0 || request.Arg2 != 33 {
+		t.Fatalf("request = %#v", request)
+	}
+	if before == nil || after == nil {
+		t.Fatal("preview values are missing")
+	}
+}
+
+func TestPrepareMoveCheatsRejectUnsafeChanges(t *testing.T) {
+	full := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", MoveIDs: []uint16{33, 55, 189, 341}, Moves: []string{"Tackle", "Water Gun", "Mud Slap", "Mud Shot"}}}}
+	if _, _, _, err := prepareCheat([]string{"learn", "MARSHTOMP", "ICE_BEAM"}, full); err == nil {
+		t.Fatal("learn succeeded with four known moves")
+	}
+	one := model.Snapshot{Team: []model.Pokemon{{Nickname: "MARSHTOMP", MoveIDs: []uint16{33}, Moves: []string{"Tackle"}}}}
+	if _, _, _, err := prepareCheat([]string{"forget", "MARSHTOMP", "TACKLE"}, one); err == nil {
+		t.Fatal("forget removed the last move")
 	}
 }
 
@@ -63,7 +102,7 @@ func TestPrepareGivePokemonCheatAcceptsSpeciesName(t *testing.T) {
 }
 
 func TestPrepareCheatRejectsInvalidValues(t *testing.T) {
-	for _, args := range [][]string{{"set-money", "1000000"}, {"set-level", "MARSHTOMP", "0"}, {"give-item", "REPEL", "0"}, {"give", "RAYQUAZA", "101"}, {"give", "MISSINGNO", "70"}, {"give", "EGG", "5"}, {"give-pokemon", "RAYQUAZA", "70"}, {"grant-pokemon", "RAYQUAZA", "70"}} {
+	for _, args := range [][]string{{"set-money", "1000000"}, {"level", "MARSHTOMP", "0"}, {"set-level", "MARSHTOMP", "25"}, {"give-item", "REPEL", "0"}, {"give", "RAYQUAZA", "101"}, {"give", "MISSINGNO", "70"}, {"give", "EGG", "5"}, {"give-pokemon", "RAYQUAZA", "70"}, {"grant-pokemon", "RAYQUAZA", "70"}} {
 		if _, _, _, err := prepareCheat(args, model.Snapshot{}); err == nil {
 			t.Fatalf("prepareCheat(%v) succeeded", args)
 		}

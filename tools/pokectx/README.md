@@ -28,9 +28,11 @@ Cheat commands preview their change by default:
 
 ```bash
 pokectx cheats set-money 5000
-pokectx cheats set-level MARSHTOMP 25
+pokectx cheats level MARSHTOMP 25
 pokectx cheats give-item REPEL 10
 pokectx cheats give RAYQUAZA 70
+pokectx cheats forget MARSHTOMP TACKLE
+pokectx cheats learn MARSHTOMP ICE_BEAM
 ```
 
 Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
@@ -39,7 +41,8 @@ Add `--confirm` to apply a previewed change. Cheats are refused during battle an
 pokectx cheats give-item REPEL 10 --confirm
 ```
 
-The game applies changes through its own `SetMoney`, `AddBagItem`, experience-table, and stat-calculation functions. Setting a level does not automatically teach skipped moves or trigger an evolution.
+The game applies changes through its own money, bag, Pokémon, move, experience, and stat functions. The `level` command does not teach skipped moves or start an evolution.
+The `learn` command requires an empty move slot. If the Pokémon knows four moves, use `forget` first. A Pokémon cannot forget its last move.
 Granted Pokémon use the game's normal gift flow: they join the party when there is room, otherwise they go to Pokémon Storage. The command fails without changing the save if both are full.
 
 ### Automatic connection on the Mac mini
