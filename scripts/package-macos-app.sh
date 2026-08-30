@@ -14,12 +14,10 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test -x "$runtime_app/Contents/MacOS/mGBA"
 test -f "$rom_path"
 runtime_version=$($runtime_app/Contents/MacOS/mGBA --version 2>&1 || true)
-case "$runtime_version" in
-	*' 0.10.5 '*|*' 0.10-stable-m64-'*) ;;
-	*)
-		printf 'warning: this launcher is verified with stable mGBA 0.10.5; got: %s\n' "$runtime_version" >&2
-		;;
-esac
+if ! otool -L "$runtime_app/Contents/MacOS/mGBA" | grep -q 'QtCore.framework/Versions/5/QtCore'; then
+	printf 'mGBA must use Qt 5 on macOS 27: %s\n' "$runtime_version" >&2
+	exit 65
+fi
 case "$output_app" in
 	*.app) ;;
 	*) printf 'output must end in .app: %s\n' "$output_app" >&2; exit 64 ;;
@@ -32,59 +30,24 @@ fi
 ditto "$runtime_app" "$output_app"
 mv "$output_app/Contents/MacOS/mGBA" "$output_app/Contents/MacOS/EmeraldRuntime"
 cp "$rom_path" "$output_app/Contents/Resources/Pokemon Emerald.gba"
+mkdir -p "$output_app/Contents/Resources/autorun"
+cp "$repo_root/tools/pokectx/scripts/pokectx.lua" "$output_app/Contents/Resources/autorun/pokectx.lua"
 if [ -f "$repo_root/AppIcon.icns" ]; then
 	cp "$repo_root/AppIcon.icns" "$output_app/Contents/Resources/PokemonEmerald.icns"
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleIconFile PokemonEmerald.icns' "$output_app/Contents/Info.plist"
 fi
 
-launcher_source=$(mktemp "${TMPDIR:-/tmp}/pokemon-emerald-launcher.XXXXXX.c")
-trap 'rm -f "$launcher_source"' EXIT HUP INT TERM
-cat > "$launcher_source" <<'EOF'
-#include <libgen.h>
-#include <limits.h>
-#include <pwd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-int main(int argc, char **argv) {
-	(void) argc;
-	char executable[PATH_MAX];
-	if (!realpath(argv[0], executable)) return 1;
-	char *macos = dirname(executable);
-
-	char runtime[PATH_MAX];
-	char rom[PATH_MAX];
-	char saves[PATH_MAX];
-	struct passwd *account = getpwuid(getuid());
-	const char *home = account ? account->pw_dir : NULL;
-	if (!home) return 1;
-	snprintf(runtime, sizeof(runtime), "%s/EmeraldRuntime", macos);
-	snprintf(rom, sizeof(rom), "%s/../Resources/Pokemon Emerald.gba", macos);
-	snprintf(saves, sizeof(saves), "%s/Library/Application Support/Pokemon Emerald 386", home);
-	mkdir(saves, 0755);
-
-	char save_option[PATH_MAX + 32];
-	char state_option[PATH_MAX + 32];
-	snprintf(save_option, sizeof(save_option), "savegamePath=%s", saves);
-	snprintf(state_option, sizeof(state_option), "savestatePath=%s", saves);
-	char *const arguments[] = {
-		runtime, "-C", save_option, "-C", state_option, rom, NULL
-	};
-	execv(runtime, arguments);
-	perror("Pokémon Emerald");
-	return 1;
-}
-EOF
-
-xcrun clang -Os "$launcher_source" -o "$output_app/Contents/MacOS/PokemonEmeraldLauncher"
+xcrun clang -Os -fobjc-arc -framework Foundation \
+	"$repo_root/emulator/mgba/tools/macos-bundled-game-launcher.m" \
+	-o "$output_app/Contents/MacOS/PokemonEmeraldLauncher"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable PokemonEmeraldLauncher' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokémon Emerald' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Pokémon Emerald' "$output_app/Contents/Info.plist" 2>/dev/null || \
-	/usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Pokémon Emerald' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.zoverflow.pokemon-emerald' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist" 2>/dev/null || \
+	/usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.zoverflow.pokemon-emerald-pokectx' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Add :MGBARuntimeName string EmeraldRuntime' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Add :MGBABundledROM string Pokemon Emerald.gba' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Add :MGBASaveDirectory string Pokemon Emerald Pokectx' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleDocumentTypes' "$output_app/Contents/Info.plist" 2>/dev/null || true
 
 codesign --force --deep --sign - "$output_app"
