@@ -30,7 +30,7 @@ Cheat commands preview their change by default:
 pokectx cheats set-money 5000
 pokectx cheats set-level MARSHTOMP 25
 pokectx cheats give-item REPEL 10
-pokectx cheats give-pokemon RAYQUAZA 70
+pokectx cheats give RAYQUAZA 70
 ```
 
 Add `--confirm` to apply a previewed change. Cheats are refused during battle and when the running ROM does not contain the native Pokéctx mailbox:
