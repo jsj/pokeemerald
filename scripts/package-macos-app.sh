@@ -48,13 +48,13 @@ xcrun clang -Os -fobjc-arc -framework Foundation \
 	"$repo_root/emulator/mgba/tools/macos-bundled-game-launcher.m" \
 	-o "$output_app/Contents/MacOS/PokemonEmeraldLauncher"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable PokemonEmeraldLauncher' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist" 2>/dev/null || \
-	/usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Pokémon Emerald Pokéctx' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleName Pokémon Emerald' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Pokémon Emerald' "$output_app/Contents/Info.plist" 2>/dev/null || \
+	/usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Pokémon Emerald' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.zoverflow.pokemon-emerald-pokectx' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :MGBARuntimeName string EmeraldRuntime' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :MGBABundledROM string Pokemon Emerald.gba' "$output_app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Add :MGBASaveDirectory string Pokemon Emerald Pokectx' "$output_app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Add :MGBASaveDirectory string Pokemon Emerald' "$output_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleDocumentTypes' "$output_app/Contents/Info.plist" 2>/dev/null || true
 
 codesign --force --deep --sign - "$output_app"
