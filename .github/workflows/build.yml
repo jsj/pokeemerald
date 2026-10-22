@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@master
 
       - name: Checkout syms
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && github.repository == 'pret/pokeemerald' }}
         uses: actions/checkout@master
         with:
           path: symbols
@@ -55,13 +55,13 @@ jobs:
         run: make -j${nproc} all
 
       - name: Move symfiles
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && github.repository == 'pret/pokeemerald' }}
         run: |
           cp -v *.sym symbols/
           echo "SYMBOLS_COMMIT_MSG=$( git log --format=%s ${GITHUB_SHA} )" >> $GITHUB_ENV
 
       - name: Update symfiles
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && github.repository == 'pret/pokeemerald' }}
         uses: EndBug/add-and-commit@v7
         with:
           branch: symbols
